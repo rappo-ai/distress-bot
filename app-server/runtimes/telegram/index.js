@@ -1,10 +1,12 @@
 const queue = require('async/queue');
-const { get: getObjectProperty } = require('lodash/object');
+const { get: getObjectProperty, has: hasObjectProperty } = require('lodash/object');
 
+const bot_definition = require("./bot-definition");
 const logger = require('../../logger');
-const { TELEGRAM_MESSAGE_TYPES, sendMessage, leaveChat } = require('../../utils/telegram');
+const { TELEGRAM_MESSAGE_TYPES, sendMessage, leaveChat, processPrivateMessage } = require('../../utils/telegram');
 
 const bots = {};
+const tracker = {};
 
 function addBot(username, secret, callbacks) {
   bots[username] = {
@@ -20,14 +22,15 @@ function getChatQueue(botUsername, botSecret, chatId) {
 }
 
 function hasAnyKey(object, baseKey, keys) {
-  return keys.some(key => getObjectProperty(object, `${baseKey}.${key}`) !== undefined);
+  return keys.some(key => hasObjectProperty(object, `${baseKey}.${key}`));
 }
 
 async function processUpdate(task, callback) {
   try {
     const chat_type = getObjectProperty(task, "update.message.chat.type") ||
       getObjectProperty(task, "update.my_chat_member.chat.type") ||
-      getObjectProperty(task, "update.channel_post.chat.type");
+      getObjectProperty(task, "update.channel_post.chat.type") ||
+      getObjectProperty(task, "update.callback_query.message.chat.type");
 
     const chat_text = getObjectProperty(task, "update.message.text");
 
@@ -41,6 +44,8 @@ async function processUpdate(task, callback) {
           await bots[task.botUsername].callbacks.onPMChatBlocked(task.update);
         } else if (hasAnyKey(task, "update.message", TELEGRAM_MESSAGE_TYPES)) {
           await bots[task.botUsername].callbacks.onPMChatMessage(task.update);
+        } else if (hasObjectProperty(task, "update.callback_query")) {
+          await bots[task.botUsername].callbacks.onPMCallbackQuery(task.update);
         }
         break;
 
@@ -79,17 +84,14 @@ async function processUpdate(task, callback) {
 
 addBot(process.env.TELEGRAM_BOT_USERNAME, process.env.TELEGRAM_BOT_SECRET, {
   onPMChatJoin: async function (update) {
-    await sendMessage({
-      chat_id: update.message.chat.id,
-      text: `Hi ${update.message.from.first_name}! My name is Distress Bot.`,
-      parse_mode: "Markdown",
-      disable_web_page_preview: true,
-    },
-      process.env.TELEGRAM_BOT_TOKEN);
     logger.info(`@${process.env.TELEGRAM_BOT_USERNAME} started PM chat with ${update.message.from.first_name} | ${update.message.from.username} | ${update.message.from.id} `);
+    return processPrivateMessage(bot_definition, update, tracker);
   },
   onPMChatMessage: async function (update) {
-    await onMessage(update, false);
+    return processPrivateMessage(bot_definition, update, tracker);
+  },
+  onPMCallbackQuery: async function (update) {
+    return processPrivateMessage(bot_definition, update, tracker);
   },
   onPMChatBlocked: async function (update) {
     logger.info(`@${process.env.TELEGRAM_BOT_USERNAME} blocked by ${update.my_chat_member.from.first_name} | ${update.my_chat_member.from.username} | ${update.my_chat_member.from.id}`);
@@ -116,53 +118,6 @@ addBot(process.env.TELEGRAM_BOT_USERNAME, process.env.TELEGRAM_BOT_SECRET, {
     logger.info(`@${process.env.TELEGRAM_BOT_USERNAME} kicked in channel ${update.my_chat_member.chat.title} | ${update.my_chat_member.chat.id} by ${update.my_chat_member.from.first_name} | ${update.my_chat_member.from.username} | ${update.my_chat_member.from.id} `);
   },
 });
-
-async function onMessage(update, isGroup) {
-  if (!update.message.text) {
-    return;
-  }
-
-  let command_match = update.message.text.match(/(^\/[a-z]+)/);
-  if (!command_match || !command_match.length) {
-    if (!isGroup) {
-      command_match = ["/help"];
-    } else {
-      return;
-    }
-  }
-  let apiResponse;
-  const command = command_match[0];
-  switch (command) {
-    case "/help":
-      {
-        apiResponse = await onCommandHelp(update);
-      }
-      break;
-    default:
-      {
-        if (!isGroup) {
-          apiResponse = await sendMessage({
-            chat_id: update.message.chat.id,
-            text: `Command ${command} not recognized. Please click /help to know the possible commands.`,
-            reply_to_message_id: update.message.message_id,
-          }, process.env.TELEGRAM_BOT_TOKEN);
-        }
-      }
-  }
-  return apiResponse;
-}
-async function onCommandHelp(update) {
-  apiResponse = await sendMessage({
-    chat_id: update.message.chat.id,
-    text: `*Distressbot Usage*
-
-This is yet to be implemented.
-`,
-    parse_mode: "Markdown",
-    disable_web_page_preview: true,
-  },
-    process.env.TELEGRAM_BOT_TOKEN);
-}
 
 module.exports = {
   getChatQueue,

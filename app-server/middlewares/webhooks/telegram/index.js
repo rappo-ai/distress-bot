@@ -8,7 +8,8 @@ const router = express.Router();
 function processWebhook(botUsername, botSecret, requestBody) {
   let chatId = getObjectProperty(requestBody, "message.chat.id") ||
     getObjectProperty(requestBody, "my_chat_member.chat.id") ||
-    getObjectProperty(requestBody, "channel_post.chat.id");
+    getObjectProperty(requestBody, "channel_post.chat.id") ||
+    getObjectProperty(requestBody, "callback_query.message.chat.id");
 
   if (!chatId) {
     logger.info("no chat id for incoming webhook message");

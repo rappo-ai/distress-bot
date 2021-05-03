@@ -71,6 +71,33 @@ async function copyMessage({ chat_id, from_chat_id, message_id, reply_to_message
   );
 }
 
+async function editMessageText({ chat_id, message_id, text, parse_mode, entities, reply_markup }, botToken) {
+  return callTelegramApi(
+    'editMessageText',
+    botToken,
+    {
+      chat_id,
+      message_id,
+      text,
+      parse_mode,
+      entities,
+      reply_markup,
+    },
+  );
+}
+
+async function editMessageReplyMarkup({ chat_id, message_id, reply_markup }, botToken) {
+  return callTelegramApi(
+    'editMessageReplyMarkup',
+    botToken,
+    {
+      chat_id,
+      message_id,
+      reply_markup,
+    },
+  );
+}
+
 async function deleteMessage({ chat_id, message_id }, botToken) {
   return callTelegramApi(
     'deleteMessage',
@@ -539,6 +566,164 @@ async function cloneMessage({ message, chat_id, reply_to_message_id = "", reply_
   return apiResponse;
 }
 
+function getInlineKeyboard(text) {
+  const inline_keyboard = [];
+
+  let reply_markup_text = text.match(/\[.+]/g);
+  if (reply_markup_text && reply_markup_text.length) {
+    reply_markup_text = reply_markup_text[0];
+  }
+
+  if (reply_markup_text) {
+    try {
+      const button_rows = reply_markup_text.match(/\[[^\[\]]+]/gm);
+      button_rows.forEach(row => {
+        const reply_markup_row = [];
+        const columns = row.slice(1, -1).trim().split(',');
+        columns.forEach(column => {
+          reply_markup_row.push({
+            text: column,
+            callback_data: column,
+          });
+        });
+        inline_keyboard.push(reply_markup_row);
+      });
+    } catch (err) {
+      logger.error(`getInlineKeyboard ${err}`);
+    }
+  }
+  return inline_keyboard;
+}
+
+function removeReplyMarkup(text) {
+  const reply_markup = text.match(/\s*\[.+]/);
+  if (reply_markup && reply_markup.length) {
+    text = text.substring(0, reply_markup["index"]);
+  }
+  return text;
+}
+
+function replaceSlots(text, stored_slots, default_slot_value) {
+  const found_slots = [...text.matchAll(/{\w+}/g)];
+  let delta = 0;
+  found_slots.forEach(s => {
+    const slot_name = s[0].slice(1, -1);
+    if (stored_slots[slot_name]) {
+      text = text.substring(0, s["index"] + delta) + stored_slots[slot_name] + text.substring(s["index"] + delta + s[0].length);
+      delta = delta + stored_slots[slot_name].length - s[0].length;
+    } else {
+      text = text.substring(0, s["index"] + delta) + default_slot_value + text.substring(s["index"] + delta + s[0].length);
+      delta = delta + default_slot_value - s[0].length;
+    }
+  });
+  return text;
+}
+
+async function doBotAction(action, chat_id, stored_slots, default_slot_value) {
+  let next_state_name;
+  switch (action.type) {
+    case "message":
+      const reply_markup = { inline_keyboard: getInlineKeyboard(action.text) };
+      let text = removeReplyMarkup(action.text);
+      text = replaceSlots(text, stored_slots, default_slot_value);
+      await sendMessage({ chat_id, text, reply_markup }, process.env.TELEGRAM_BOT_TOKEN);
+      next_state_name = action.on_sent;
+      break;
+    case "api":
+      next_state_name = action.on_success;
+      break;
+    case "goto":
+      next_state_name = action.state;
+      break;
+    default:
+      break;
+  }
+  return next_state_name;
+}
+
+async function doCommand(command_message, bot_definition, chat_id, stored_slots) {
+  const command = bot_definition.commands.find(c => c.trigger === command_message);
+  if (command) {
+    return doBotAction(command.action, chat_id, stored_slots, bot_definition.default_slot_value);
+  }
+  return sendMessage({ chat_id, text: bot_definition.command_fallback }, process.env.TELEGRAM_BOT_TOKEN);
+}
+
+async function doFallback(bot_definition, fallback_state, chat_id) {
+  if (fallback_state.fallback) {
+    return sendMessage({ chat_id, text: fallback_state.fallback }, process.env.TELEGRAM_BOT_TOKEN);
+  }
+  return sendMessage({ chat_id, text: bot_definition.default_fallback }, process.env.TELEGRAM_BOT_TOKEN);
+}
+
+async function processPrivateMessage(bot_definition, update, tracker) {
+  const chat_id = getObjectProperty(update, "message.chat.id") || getObjectProperty(update, "callback_query.message.chat.id");
+  const message_id = getObjectProperty(update, "message.message_id") || getObjectProperty(update, "callback_query.message.message_id");
+
+  if (!chat_id) {
+    logger.warn("processPrivateMessage !chat_id");
+    return;
+  }
+  if (!tracker[chat_id]) {
+    tracker[chat_id] = {
+      state: undefined,
+      slots: {},
+    };
+  }
+
+  const message_text = getObjectProperty(update, "message.text") || getObjectProperty(update, "callback_query.data") || "";
+  const current_state_name = tracker[chat_id].state;
+  const current_state = bot_definition.states.find(s => s.name === current_state_name);
+  const stored_slots = tracker[chat_id].slots;
+
+  let next_state_name;
+  let next_state_transition;
+
+  if (update.callback_query && chat_id && message_id) {
+    //await editMessageReplyMarkup({ chat_id, message_id, reply_markup: { inline_keyboard: [] } }, process.env.TELEGRAM_BOT_TOKEN);
+    //await sendMessage({ chat_id, text: update.callback_query.data }, process.env.TELEGRAM_BOT_TOKEN);
+    await editMessageText({ chat_id, message_id, text: `${update.callback_query.message.text} ${message_text}`, reply_markup: { inline_keyboard: [] } }, process.env.TELEGRAM_BOT_TOKEN);
+  }
+
+  if (message_text.charAt(0) === "/") {
+    next_state_name = await doCommand(message_text, bot_definition, chat_id, stored_slots);
+  } else if (current_state) {
+    if (current_state.slot) {
+      stored_slots[current_state.slot] = message_text;
+    }
+
+    if (current_state.validation) {
+      if (!message_text.match(new RegExp(current_state.validation))) {
+        await doFallback(bot_definition, current_state, chat_id);
+        return;
+      }
+    }
+
+    if (current_state.transitions) {
+      next_state_transition = current_state.transitions.find(t => t.on === message_text);
+      if (next_state_transition) {
+        next_state_name = next_state_transition.to;
+      }
+      if (!next_state_name) {
+        next_state_transition = current_state.transitions.find(t => t.on === "*");
+        if (next_state_transition) {
+          next_state_name = next_state_transition.to;
+        }
+      }
+    }
+
+    if (!next_state_name) {
+      await doFallback(bot_definition, current_state, chat_id);
+      return;
+    }
+  }
+
+  while (next_state_name) {
+    tracker[chat_id].state = next_state_name;
+    next_state_name = await doBotAction(bot_definition.states.find(s => s.name === next_state_name).action, chat_id, stored_slots, bot_definition.default_slot_value);
+  }
+}
+
 module.exports = {
   callTelegramApi,
   TELEGRAM_MESSAGE_TYPES,
@@ -548,6 +733,8 @@ module.exports = {
   sendMessage,
   forwardMessage,
   copyMessage,
+  editMessageText,
+  editMessageReplyMarkup,
   deleteMessage,
   sendPhoto,
   sendAudio,
@@ -565,4 +752,5 @@ module.exports = {
   sendGame,
   leaveChat,
   cloneMessage,
+  processPrivateMessage,
 };
