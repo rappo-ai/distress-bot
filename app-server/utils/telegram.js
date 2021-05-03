@@ -613,7 +613,7 @@ function replaceSlots(text, stored_slots, default_slot_value) {
       delta = delta + stored_slots[slot_name].length - s[0].length;
     } else {
       text = text.substring(0, s["index"] + delta) + default_slot_value + text.substring(s["index"] + delta + s[0].length);
-      delta = delta + default_slot_value - s[0].length;
+      delta = delta + default_slot_value.length - s[0].length;
     }
   });
   return text;
@@ -642,6 +642,9 @@ async function doBotAction(action, chat_id, stored_slots, default_slot_value) {
 }
 
 async function doCommand(command_message, bot_definition, chat_id, stored_slots) {
+  if (command_message === "/start" || command_message === "/restart") {
+    Object.keys(stored_slots).forEach(key => delete stored_slots[key]);
+  }
   const command = bot_definition.commands.find(c => c.trigger === command_message);
   if (command) {
     return doBotAction(command.action, chat_id, stored_slots, bot_definition.default_slot_value);
