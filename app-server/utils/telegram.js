@@ -680,8 +680,6 @@ async function processPrivateMessage(bot_definition, update, tracker) {
   let next_state_transition;
 
   if (update.callback_query && chat_id && message_id) {
-    //await editMessageReplyMarkup({ chat_id, message_id, reply_markup: { inline_keyboard: [] } }, process.env.TELEGRAM_BOT_TOKEN);
-    //await sendMessage({ chat_id, text: update.callback_query.data }, process.env.TELEGRAM_BOT_TOKEN);
     await editMessageText({ chat_id, message_id, text: `${update.callback_query.message.text} ${message_text}`, reply_markup: { inline_keyboard: [] } }, process.env.TELEGRAM_BOT_TOKEN);
   }
 
