@@ -629,6 +629,41 @@ function formatDate(unixTs) {
     }
   );
 }
+
+async function addRow(ssid,creds, dictionary, headers){
+  const { GoogleSpreadsheet } = require('google-spreadsheet');  
+  
+  const doc = new GoogleSpreadsheet(ssid);
+  await doc.useServiceAccountAuth(creds);
+  await doc.loadInfo(); // loads document properties and worksheets
+  
+  // for (const [ key, value ] of Object.entries(dictionary)) {
+  //   // do something with `key` and `value`
+  //   console.log(key);
+  // }
+  
+  console.log(doc.title);
+  console.log(doc.sheetCount);
+  
+  const sheet = await doc.sheetsByTitle["Master"] ? await doc.sheetsByTitle["Master"]: await doc.addSheet({ title : "Master", headerValues: headers });
+  dictionary["date"] = new Date().toLocaleString(undefined, {timeZone: 'Asia/Kolkata'});
+  
+  const newRow = await sheet.addRow({Date : dictionary['date'], Requirement : dictionary["requirement"], 
+  "SPO2 level" : dictionary["spo2"],"Bed type" : dictionary["bed_type"] , "Needs cylinder" : dictionary["needs_cylinder"],
+  "Covid test done?" : dictionary["covid_test_done"], "Covid test result" : dictionary["covid_test_result"], 
+  "BU number" : dictionary["bu_number"], "SRF ID" : dictionary["covid_test_srf"], 
+  "Name" : dictionary["name"], "Age" :  dictionary["age"], "Gender" : dictionary["gender"],
+  "Blood group" : dictionary["blood_group"] , "Mobile number" : dictionary["mobile_number"],
+  "Address" : dictionary["address"], "Hospital preference" : dictionary["hospital_preference"], 
+  "Resolved":"No"
+    });
+  // 
+   
+    
+    
+  console.log("Successful");
+}
+
 const functions = {
   "submitForm": async function (update, chat_tracker, bot_definition) {
     const chat_id = getChatId(update);
@@ -637,6 +672,13 @@ const functions = {
     const first_name = getFirstName(update);
     const last_name = getLastName(update);
     const date = getDate(update);
+
+    const creds = require('./client_secret.json'); // Authentication Credentials
+    const ssid = '1dKsDhCS982cq74mbt-EPkMq3w5dDSaGY937vc1546fo' // Spreadsheet ID
+    headers = ["Date", "Requirement","SPO2 level", "Bed type", "Needs cylinder", "Covid test done?", 
+    "Covid test result", "BU number", "SRF ID", "Name", "Age", "Gender", "Blood group", "Mobile number",
+    "Address", "Hospital preference", "Resolved"];
+    addRow(ssid, creds, chat_tracker.store, headers);
 
     let request_message = `${first_name} ${last_name}/@${user_name}
   
