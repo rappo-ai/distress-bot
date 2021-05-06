@@ -1,6 +1,8 @@
 const axios = require('axios').default;
 const { get: getObjectProperty } = require('lodash/object');
 
+const logger = require('../logger');
+
 const TELEGRAM_MESSAGE_TYPES = ["text", "animation", "audio", "document", "photo", "sticker", "video", "video_note", "voice", "caption", "contact", "dice", "game", "poll", "venue", "location"];
 
 async function callTelegramApi(endpoint, token, body = {}) {
@@ -566,6 +568,271 @@ async function cloneMessage({ message, chat_id, reply_to_message_id = "", reply_
   return apiResponse;
 }
 
+const tracker = {};
+
+function getTrackerForChat(chat_id) {
+  if (!tracker[chat_id]) {
+    tracker[chat_id] = {
+      current_state_name: undefined,
+      store: {},
+    };
+  }
+  return tracker[chat_id];
+}
+
+function getChatId(update) {
+  return getObjectProperty(update, "message.chat.id") || getObjectProperty(update, "callback_query.message.chat.id");
+}
+
+function getMessageId(update) {
+  return getObjectProperty(update, "message.message_id") || getObjectProperty(update, "callback_query.message.message_id");
+}
+
+function getMessageText(update) {
+  return getObjectProperty(update, "message.text") || getObjectProperty(update, "callback_query.data") || "";
+}
+
+function getUserName(update) {
+  return getObjectProperty(update, "message.from.username") || getObjectProperty(update, "callback_query.from.username") || "";
+}
+
+function getFirstName(update) {
+  return getObjectProperty(update, "message.from.first_name") || getObjectProperty(update, "callback_query.from.first_name") || "";
+}
+
+function getLastName(update) {
+  return getObjectProperty(update, "message.from.last_name") || getObjectProperty(update, "callback_query.from.last_name") || "";
+}
+
+function getDate(update) {
+  return getObjectProperty(update, "message.date") || getObjectProperty(update, "callback_query.message.date");
+}
+
+function isReplyToBot(update) {
+  return !!getObjectProperty(update, "message.reply_to_message.from.is_bot");
+}
+
+function isCallbackQuery(update) {
+  return !!getObjectProperty(update, "callback_query");
+}
+
+function formatDate(unixTs) {
+  return new Date(unixTs * 1000).toLocaleString("en-GB",
+    {
+      timeZone: "Asia/Kolkata",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "numeric",
+      second: "numeric",
+    }
+  );
+}
+const functions = {
+  "submitForm": async function (update, chat_tracker, bot_definition) {
+    const chat_id = getChatId(update);
+    const message_id = getMessageId(update);
+    const user_name = getUserName(update);
+    const first_name = getFirstName(update);
+    const last_name = getLastName(update);
+    const date = getDate(update);
+
+    let request_message = `${first_name} ${last_name}/@${user_name}
+  
+STATUS: OPEN
+
+Received on ${formatDate(date)}
+
+Requirement - {requirement}
+SPO2 level - {spo2}
+Bed type - {bed}
+
+Reply to this message to send a message to user in PM.
+
+${message_id}
+${chat_id}`;
+    request_message = replaceSlots(request_message, chat_tracker.store, bot_definition.default_slot_value);
+    const reply_markup = { inline_keyboard: getInlineKeyboard("[[Close Request]]") };
+    const api_response = await sendMessage({ chat_id: process.env.TELEGRAM_ADMIN_GROUP_CHAT_ID, text: request_message, reply_markup }, process.env.TELEGRAM_BOT_TOKEN);
+    chat_tracker.group_request_message = api_response.data.result;
+  },
+
+  "appendUserForm": async function (update, chat_tracker, bot_definition) {
+    const user_message_text = getMessageText(update);
+    const admin_request_message_id = chat_tracker.group_request_message.message_id;
+    const admin_request_message_text = chat_tracker.group_request_message.text;
+    const admin_request_reply_markup = chat_tracker.group_request_message.reply_markup;
+    const date = getDate(update);
+
+    const message_lines = admin_request_message_text.split("\n");
+    let new_message_lines = [];
+    message_lines.forEach(line => {
+      new_message_lines.push(line);
+      if (line.startsWith("STATUS")) {
+        new_message_lines.push("");
+        new_message_lines.push(`Received on ${formatDate(date)}`);
+        new_message_lines.push("");
+        new_message_lines.push(user_message_text);
+      }
+    });
+    const new_admin_request_message_text = new_message_lines.join("\n");
+
+    const api_response = await sendMessage({
+      chat_id: process.env.TELEGRAM_ADMIN_GROUP_CHAT_ID,
+      text: new_admin_request_message_text,
+      reply_markup: admin_request_reply_markup,
+    }, process.env.TELEGRAM_BOT_TOKEN);
+    chat_tracker.group_request_message = api_response.data.result;
+    await deleteMessage({
+      chat_id: process.env.TELEGRAM_ADMIN_GROUP_CHAT_ID,
+      message_id: admin_request_message_id,
+    }, process.env.TELEGRAM_BOT_TOKEN);
+  },
+
+  "cancelRequest": async function (update, chat_tracker, bot_definition) {
+    const admin_request_message_id = chat_tracker.group_request_message.message_id;
+    const admin_request_message_text = chat_tracker.group_request_message.text;
+    const date = getDate(update);
+
+    const message_lines = admin_request_message_text.split("\n");
+    let new_message_lines = [];
+    message_lines.forEach(line => {
+      if (line.startsWith("STATUS")) {
+        line = "STATUS: CANCELLED"
+      }
+      new_message_lines.push(line);
+      if (line.startsWith("STATUS")) {
+        new_message_lines.push("");
+        new_message_lines.push(`Received on ${formatDate(date)}`);
+        new_message_lines.push("");
+        new_message_lines.push("<User cancelled the request>");
+      }
+    });
+    const new_admin_request_message_text = new_message_lines.join("\n");
+
+    let api_response = await sendMessage({
+      chat_id: process.env.TELEGRAM_ADMIN_GROUP_CHAT_ID,
+      text: new_admin_request_message_text,
+    }, process.env.TELEGRAM_BOT_TOKEN);
+    chat_tracker.group_request_message = api_response.data.result;
+    api_response = await deleteMessage({
+      chat_id: process.env.TELEGRAM_ADMIN_GROUP_CHAT_ID,
+      message_id: admin_request_message_id,
+    }, process.env.TELEGRAM_BOT_TOKEN);
+
+    api_response = await sendMessage({
+      chat_id: getChatId(update),
+      text: 'Your request has been successfully cancelled. Ping me anytime to create a new request.',
+    }, process.env.TELEGRAM_BOT_TOKEN);
+  },
+
+  "appendAdminForm": async function (update, chat_tracker, bot_definition) {
+    const admin_message_text = getMessageText(update);
+    const admin_message_id = getMessageId(update);
+    const admin_request_message_id = update.message.reply_to_message.message_id;
+    const admin_request_message_text = update.message.reply_to_message.text;
+    const admin_request_reply_markup = update.message.reply_to_message.reply_markup;
+    const date = getDate(update);
+
+    const message_lines = admin_request_message_text.split("\n");
+    let new_message_lines = [];
+    message_lines.forEach(line => {
+      new_message_lines.push(line);
+      if (line.startsWith("STATUS")) {
+        new_message_lines.push("");
+        new_message_lines.push(`Sent on ${formatDate(date)}`);
+        new_message_lines.push("");
+        new_message_lines.push(admin_message_text);
+      }
+    });
+    const new_admin_request_message_text = new_message_lines.join("\n");
+    const user_chat_id = message_lines[message_lines.length - 1];
+
+    // admin responses
+    let api_response = await sendMessage({
+      chat_id: process.env.TELEGRAM_ADMIN_GROUP_CHAT_ID,
+      text: new_admin_request_message_text,
+      reply_markup: admin_request_reply_markup,
+    }, process.env.TELEGRAM_BOT_TOKEN);
+    tracker[user_chat_id].group_request_message = api_response.data.result;
+    await deleteMessage({
+      chat_id: process.env.TELEGRAM_ADMIN_GROUP_CHAT_ID,
+      message_id: admin_request_message_id,
+    }, process.env.TELEGRAM_BOT_TOKEN);
+    try {
+      await deleteMessage({
+        chat_id: process.env.TELEGRAM_ADMIN_GROUP_CHAT_ID,
+        message_id: admin_message_id,
+      }, process.env.TELEGRAM_BOT_TOKEN);
+    } catch (err) {
+      logger.err(`appendAdminForm ${err}`);
+      logger.warn('bot is not an admin in the group');
+    }
+
+    // user response
+    api_response = await sendMessage({
+      chat_id: user_chat_id,
+      text: `NEW MESSAGE FROM SAHAYA GROUP:
+
+${admin_message_text}`,
+    }, process.env.TELEGRAM_BOT_TOKEN);
+  },
+
+  "handleAdminCallback": async function (update, chat_tracker, bot_definition) {
+    const callback_data = getMessageText(update);
+    const admin_message_id = getMessageId(update);
+    const admin_username = getUserName(update);
+    const admin_request_message_id = update.message.reply_to_message.message_id;
+    const admin_request_message_text = update.message.reply_to_message.text;
+    const admin_request_reply_markup = update.message.reply_to_message.reply_markup;
+    const date = getDate(update);
+
+    switch (callback_data) {
+      case "Close Request":
+        const message_lines = admin_request_message_text.split("\n");
+        let new_message_lines = [];
+        message_lines.forEach(line => {
+          if (line.startsWith("STATUS")) {
+            line = "STATUS: CLOSED"
+          }
+          new_message_lines.push(line);
+          if (line.startsWith("STATUS")) {
+            new_message_lines.push("");
+            new_message_lines.push(`Sent on ${formatDate(date)}`);
+            new_message_lines.push("");
+            new_message_lines.push(`<Admin @${admin_username} closed the request>`);
+          }
+        });
+        const new_admin_request_message_text = new_message_lines.join("\n");
+        const user_chat_id = message_lines[message_lines.length - 1];
+
+        // admin responses
+        let api_response = await sendMessage({
+          chat_id: process.env.TELEGRAM_ADMIN_GROUP_CHAT_ID,
+          text: new_admin_request_message_text,
+          reply_markup: admin_request_reply_markup,
+        }, process.env.TELEGRAM_BOT_TOKEN);
+        tracker[user_chat_id].group_request_message = api_response.data.result;
+        await deleteMessage({
+          chat_id: process.env.TELEGRAM_ADMIN_GROUP_CHAT_ID,
+          message_id: admin_request_message_id,
+        }, process.env.TELEGRAM_BOT_TOKEN);
+        await deleteMessage({
+          chat_id: process.env.TELEGRAM_ADMIN_GROUP_CHAT_ID,
+          message_id: admin_message_id,
+        }, process.env.TELEGRAM_BOT_TOKEN);
+
+        // user response
+        api_response = await sendMessage({
+          chat_id: user_chat_id,
+          text: `Your request has been closed.`,
+        }, process.env.TELEGRAM_BOT_TOKEN);
+        break;
+    }
+  },
+};
+
 function getInlineKeyboard(text) {
   const inline_keyboard = [];
 
@@ -603,14 +870,14 @@ function removeReplyMarkup(text) {
   return text;
 }
 
-function replaceSlots(text, stored_slots, default_slot_value) {
+function replaceSlots(text, chat_store, default_slot_value) {
   const found_slots = [...text.matchAll(/{\w+}/g)];
   let delta = 0;
   found_slots.forEach(s => {
     const slot_name = s[0].slice(1, -1);
-    if (stored_slots[slot_name]) {
-      text = text.substring(0, s["index"] + delta) + stored_slots[slot_name] + text.substring(s["index"] + delta + s[0].length);
-      delta = delta + stored_slots[slot_name].length - s[0].length;
+    if (chat_store[slot_name]) {
+      text = text.substring(0, s["index"] + delta) + chat_store[slot_name] + text.substring(s["index"] + delta + s[0].length);
+      delta = delta + chat_store[slot_name].length - s[0].length;
     } else {
       text = text.substring(0, s["index"] + delta) + default_slot_value + text.substring(s["index"] + delta + s[0].length);
       delta = delta + default_slot_value.length - s[0].length;
@@ -619,83 +886,139 @@ function replaceSlots(text, stored_slots, default_slot_value) {
   return text;
 }
 
-async function doBotAction(action, chat_id, stored_slots, default_slot_value) {
+function addMessageSlotsToStore(slots, chat_store, message_text, message_id) {
+  if (slots) {
+    for (const [data_key, slot_key] of Object.entries(slots)) {
+      let slot_value;
+      switch (data_key) {
+        case "message_text":
+          slot_value = message_text;
+          break;
+        case "message_id":
+          slot_value = message_id;
+          break;
+        default:
+          break;
+      }
+      chat_store[slot_key] = slot_value;
+    }
+  }
+}
+
+async function doBotAction(action, chat_tracker, update, functions, bot_definition) {
+  const chat_id = getChatId(update);
   let next_state_name;
-  switch (action.type) {
-    case "message":
-      const reply_markup = { inline_keyboard: getInlineKeyboard(action.text) };
-      let text = removeReplyMarkup(action.text);
-      text = replaceSlots(text, stored_slots, default_slot_value);
-      await sendMessage({ chat_id, text, reply_markup }, process.env.TELEGRAM_BOT_TOKEN);
-      next_state_name = action.on_sent;
-      break;
-    case "api":
-      next_state_name = action.on_success;
-      break;
-    case "goto":
-      next_state_name = action.state;
-      break;
-    default:
-      break;
+  let api_response;
+  if (action) {
+    switch (action.type) {
+      case "send_message":
+        const reply_markup = { inline_keyboard: getInlineKeyboard(action.text) };
+        let text = removeReplyMarkup(action.text);
+        text = replaceSlots(text, chat_tracker.store, bot_definition.default_slot_value);
+        api_response = await sendMessage({ chat_id, text, reply_markup }, process.env.TELEGRAM_BOT_TOKEN);
+        addMessageSlotsToStore(action.slots, chat_tracker.store, api_response.data.result.text, api_response.data.result.message_id);
+        chat_tracker.last_message_sent = api_response.data.result;
+        break;
+      case "forward_message":
+        const to_chat_id = replaceSlots(action.to, chat_tracker.store);
+        const message_id = replaceSlots(action.message_id, chat_tracker.store);
+        api_response = await forwardMessage({ chat_id: to_chat_id, from_chat_id: chat_id, message_id }, process.env.TELEGRAM_BOT_TOKEN);
+        addMessageSlotsToStore(action.slots, chat_tracker.store, api_response.data.result.text, api_response.data.result.message_id);
+        chat_tracker.last_message_sent = api_response.data.result;
+        break;
+      case "call_function":
+        if (functions[action.method]) {
+          try {
+            await functions[action.method](update, chat_tracker, bot_definition);
+            next_state_name = action.on_success;
+          } catch (err) {
+            logger.error(`call_function ${err}`);
+            next_state_name = action.on_failure;
+          }
+        }
+        break;
+      case "goto_state":
+        next_state_name = action.state;
+        break;
+      default:
+        break;
+    }
   }
   return next_state_name;
 }
 
-async function doCommand(command_message, bot_definition, chat_id, stored_slots) {
-  if (command_message === "/start" || command_message === "/restart") {
-    Object.keys(stored_slots).forEach(key => delete stored_slots[key]);
-  }
-  const command = bot_definition.commands.find(c => c.trigger === command_message);
+async function doCommand(command_match, chat_tracker, update, functions, bot_definition) {
+  const command = bot_definition.commands.find(c => c.trigger === command_match[0]);
   if (command) {
-    return doBotAction(command.action, chat_id, stored_slots, bot_definition.default_slot_value);
+    return doBotAction(command.action, chat_tracker, update, functions, bot_definition);
   }
-  return sendMessage({ chat_id, text: bot_definition.command_fallback }, process.env.TELEGRAM_BOT_TOKEN);
+  const chat_id = getChatId(update);
+  const api_response = await sendMessage({ chat_id, text: bot_definition.command_fallback }, process.env.TELEGRAM_BOT_TOKEN);
+  chat_tracker.last_message_sent = api_response.data.result;
 }
 
-async function doFallback(bot_definition, fallback_state, chat_id) {
+async function doFallback(bot_definition, chat_tracker, fallback_state, chat_id) {
+  let api_response;
   if (fallback_state.fallback) {
-    return sendMessage({ chat_id, text: fallback_state.fallback }, process.env.TELEGRAM_BOT_TOKEN);
+    api_response = await sendMessage({ chat_id, text: fallback_state.fallback }, process.env.TELEGRAM_BOT_TOKEN);
+    chat_tracker.last_message_sent = api_response.data.result;
+    return api_response;
   }
-  return sendMessage({ chat_id, text: bot_definition.default_fallback }, process.env.TELEGRAM_BOT_TOKEN);
+  api_response = await sendMessage({ chat_id, text: bot_definition.default_fallback }, process.env.TELEGRAM_BOT_TOKEN);
+  chat_tracker.last_message_sent = api_response.data.result;
 }
 
-async function processPrivateMessage(bot_definition, update, tracker) {
-  const chat_id = getObjectProperty(update, "message.chat.id") || getObjectProperty(update, "callback_query.message.chat.id");
-  const message_id = getObjectProperty(update, "message.message_id") || getObjectProperty(update, "callback_query.message.message_id");
+async function processPMUpdate(update, chat_tracker, bot_definition) {
+  const chat_id = getChatId(update);
+  const message_id = getMessageId(update);
 
   if (!chat_id) {
-    logger.warn("processPrivateMessage !chat_id");
+    logger.warn("processPMUpdate !chat_id");
     return;
   }
-  if (!tracker[chat_id]) {
-    tracker[chat_id] = {
-      state: undefined,
-      slots: {},
-    };
-  }
 
-  const message_text = getObjectProperty(update, "message.text") || getObjectProperty(update, "callback_query.data") || "";
-  const current_state_name = tracker[chat_id].state;
+  const message_text = getMessageText(update);
+  const current_state_name = chat_tracker.current_state_name;
   const current_state = bot_definition.states.find(s => s.name === current_state_name);
-  const stored_slots = tracker[chat_id].slots;
+
+  const chat_store = chat_tracker.store;
 
   let next_state_name;
   let next_state_transition;
 
   if (update.callback_query && chat_id && message_id) {
-    await editMessageText({ chat_id, message_id, text: `${update.callback_query.message.text} ${message_text}`, reply_markup: { inline_keyboard: [] } }, process.env.TELEGRAM_BOT_TOKEN);
+    // hiding the quick reply buttons when any one is clicked
+    await editMessageText({
+      chat_id,
+      message_id,
+      text: `${update.callback_query.message.text} ${message_text}`,
+      entities: update.callback_query.message.entities,
+      reply_markup: { inline_keyboard: [] }
+    }, process.env.TELEGRAM_BOT_TOKEN);
+  } else if (getObjectProperty(chat_tracker, "last_message_sent.reply_markup.inline_keyboard.length")) {
+    // hiding the quick reply buttons when any new message is sent
+    await editMessageText({
+      chat_id,
+      message_id: getObjectProperty(chat_tracker, "last_message_sent.message_id"),
+      text: getObjectProperty(chat_tracker, "last_message_sent.text"),
+      entities: getObjectProperty(chat_tracker, "last_message_sent.entities"),
+      reply_markup: { inline_keyboard: [] }
+    }, process.env.TELEGRAM_BOT_TOKEN);
   }
 
-  if (message_text.charAt(0) === "/") {
-    next_state_name = await doCommand(message_text, bot_definition, chat_id, stored_slots);
+  const command_match = message_text.match(/(^\/[a-z]+)/);
+  if (command_match && command_match.length) {
+    next_state_name = await doCommand(command_match, chat_tracker, update, functions, bot_definition);
   } else if (current_state) {
-    if (current_state.slot) {
-      stored_slots[current_state.slot] = message_text;
+    if (current_state.reset_slots) {
+      Object.keys(chat_store).forEach(key => delete chat_store[key]);
     }
+
+    addMessageSlotsToStore(current_state.slots, chat_store, message_text, message_id);
 
     if (current_state.validation) {
       if (!message_text.match(new RegExp(current_state.validation))) {
-        await doFallback(bot_definition, current_state, chat_id);
+        await doFallback(bot_definition, chat_tracker, current_state, chat_id);
         return;
       }
     }
@@ -714,14 +1037,31 @@ async function processPrivateMessage(bot_definition, update, tracker) {
     }
 
     if (!next_state_name) {
-      await doFallback(bot_definition, current_state, chat_id);
+      await doFallback(bot_definition, chat_tracker, current_state, chat_id);
       return;
     }
   }
 
   while (next_state_name) {
-    tracker[chat_id].state = next_state_name;
-    next_state_name = await doBotAction(bot_definition.states.find(s => s.name === next_state_name).action, chat_id, stored_slots, bot_definition.default_slot_value);
+    chat_tracker.current_state_name = next_state_name;
+    let action_list = bot_definition.states.find(s => s.name === next_state_name).action;
+    if (!Array.isArray(action_list)) {
+      action_list = [action_list];
+    }
+    for (let i = 0; i < action_list.length; ++i) {
+      next_state_name = await doBotAction(action_list[i], chat_tracker, update, functions, bot_definition);
+    }
+  }
+}
+
+async function processGroupUpdate(update, chat_tracker, bot_definition) {
+  const reply_to_bot_action = getObjectProperty(bot_definition, "group.reply_to_bot.action");
+  if (isReplyToBot(update) && reply_to_bot_action) {
+    await doBotAction(reply_to_bot_action, chat_tracker, update, functions, bot_definition);
+  }
+  const callback_query_action = getObjectProperty(bot_definition, "group.callback_query.action");
+  if (isCallbackQuery(update) && callback_query_action) {
+    await doBotAction(callback_query_action, chat_tracker, update, functions, bot_definition);
   }
 }
 
@@ -753,5 +1093,8 @@ module.exports = {
   sendGame,
   leaveChat,
   cloneMessage,
-  processPrivateMessage,
+  processPMUpdate,
+  processGroupUpdate,
+  getTrackerForChat,
+  getChatId,
 };
