@@ -646,13 +646,25 @@ Received on ${formatDate(date)}
 
 Requirement - {requirement}
 SPO2 level - {spo2}
-Bed type - {bed}
+Bed type - {bed_type}
+Needs cylinder - {needs_cylinder}
+Covid test done? - {covid_test_done}
+Covid test result - {covid_test_result}
+BU number - {bu_number}
+SRF ID - {covid_test_srf}
+Name - {name}
+Age - {age}
+Gender - {gender}
+Blood group - {blood_group}
+Mobile number - {mobile_number}
+Address - {address}
+Hospital preference - {hospital_preference}
 
 Reply to this message to send a message to user in PM.
 
 ${message_id}
 ${chat_id}`;
-    request_message = replaceSlots(request_message, chat_tracker.store, bot_definition.default_slot_value);
+    request_message = replaceSlots(request_message, chat_tracker.store, "");
     const reply_markup = { inline_keyboard: getInlineKeyboard("[[Close Request]]") };
     const api_response = await sendMessage({ chat_id: process.env.TELEGRAM_ADMIN_GROUP_CHAT_ID, text: request_message, reply_markup }, process.env.TELEGRAM_BOT_TOKEN);
     chat_tracker.group_request_message = api_response.data.result;
@@ -725,6 +737,13 @@ ${chat_id}`;
       chat_id: getChatId(update),
       text: 'Your request has been successfully cancelled. Ping me anytime to create a new request.',
     }, process.env.TELEGRAM_BOT_TOKEN);
+  },
+
+  "checkSpo2": async function (update, chat_tracker, bot_definition) {
+    const spo2 = chat_tracker.store["spo2"];
+    if (spo2 && parseInt(spo2) < 90) {
+      throw new Error("oxygen too low");
+    }
   },
 
   "appendAdminForm": async function (update, chat_tracker, bot_definition) {
@@ -847,13 +866,20 @@ function getInlineKeyboard(text) {
       button_rows.forEach(row => {
         const reply_markup_row = [];
         const columns = row.slice(1, -1).trim().split(',');
+        let hasAtleastOneColumn = false;
         columns.forEach(column => {
-          reply_markup_row.push({
-            text: column,
-            callback_data: column,
-          });
+          column = column.trim();
+          if (column) {
+            reply_markup_row.push({
+              text: column,
+              callback_data: column,
+            });
+            hasAtleastOneColumn = true;
+          }
         });
-        inline_keyboard.push(reply_markup_row);
+        if (hasAtleastOneColumn) {
+          inline_keyboard.push(reply_markup_row);
+        }
       });
     } catch (err) {
       logger.error(`getInlineKeyboard ${err}`);
@@ -912,16 +938,16 @@ async function doBotAction(action, chat_tracker, update, functions, bot_definiti
   if (action) {
     switch (action.type) {
       case "send_message":
-        const reply_markup = { inline_keyboard: getInlineKeyboard(action.text) };
-        let text = removeReplyMarkup(action.text);
-        text = replaceSlots(text, chat_tracker.store, bot_definition.default_slot_value);
+        let text = replaceSlots(action.text, chat_tracker.store, "");
+        const reply_markup = { inline_keyboard: getInlineKeyboard(text) };
+        text = removeReplyMarkup(text);
         api_response = await sendMessage({ chat_id, text, reply_markup }, process.env.TELEGRAM_BOT_TOKEN);
         addMessageSlotsToStore(action.slots, chat_tracker.store, api_response.data.result.text, api_response.data.result.message_id);
         chat_tracker.last_message_sent = api_response.data.result;
         break;
       case "forward_message":
-        const to_chat_id = replaceSlots(action.to, chat_tracker.store);
-        const message_id = replaceSlots(action.message_id, chat_tracker.store);
+        const to_chat_id = replaceSlots(action.to, chat_tracker.store, "");
+        const message_id = replaceSlots(action.message_id, chat_tracker.store, "");
         api_response = await forwardMessage({ chat_id: to_chat_id, from_chat_id: chat_id, message_id }, process.env.TELEGRAM_BOT_TOKEN);
         addMessageSlotsToStore(action.slots, chat_tracker.store, api_response.data.result.text, api_response.data.result.message_id);
         chat_tracker.last_message_sent = api_response.data.result;
@@ -960,10 +986,12 @@ async function doCommand(command_match, chat_tracker, update, functions, bot_def
 async function doFallback(bot_definition, chat_tracker, fallback_state, chat_id) {
   let api_response;
   if (fallback_state.fallback) {
-    const reply_markup = { inline_keyboard: getInlineKeyboard(fallback_state.fallback) };
+    let text = replaceSlots(fallback_state.fallback, chat_tracker.store, "");
+    const reply_markup = { inline_keyboard: getInlineKeyboard(text) };
+    text = removeReplyMarkup(text);
     api_response = await sendMessage({
       chat_id,
-      text: removeReplyMarkup(fallback_state.fallback),
+      text,
       reply_markup
     }, process.env.TELEGRAM_BOT_TOKEN);
     chat_tracker.last_message_sent = api_response.data.result;
@@ -1016,10 +1044,8 @@ async function processPMUpdate(update, chat_tracker, bot_definition) {
     next_state_name = await doCommand(command_match, chat_tracker, update, functions, bot_definition);
   } else if (current_state) {
     if (current_state.reset_slots) {
-      Object.keys(chat_store).forEach(key => delete chat_store[key]);
+      Object.keys(chat_store).forEach(key => (!current_state.reset_slots_exceptions || !current_state.reset_slots_exceptions.includes(key)) && delete chat_store[key]);
     }
-
-    addMessageSlotsToStore(current_state.slots, chat_store, message_text, message_id);
 
     if (current_state.validation) {
       if (!message_text.match(new RegExp(current_state.validation))) {
@@ -1027,6 +1053,8 @@ async function processPMUpdate(update, chat_tracker, bot_definition) {
         return;
       }
     }
+
+    addMessageSlotsToStore(current_state.slots, chat_store, message_text, message_id);
 
     if (current_state.transitions) {
       next_state_transition = current_state.transitions.find(t => t.on === message_text);
