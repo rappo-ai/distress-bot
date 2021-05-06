@@ -960,7 +960,12 @@ async function doCommand(command_match, chat_tracker, update, functions, bot_def
 async function doFallback(bot_definition, chat_tracker, fallback_state, chat_id) {
   let api_response;
   if (fallback_state.fallback) {
-    api_response = await sendMessage({ chat_id, text: fallback_state.fallback }, process.env.TELEGRAM_BOT_TOKEN);
+    const reply_markup = { inline_keyboard: getInlineKeyboard(fallback_state.fallback) };
+    api_response = await sendMessage({
+      chat_id,
+      text: removeReplyMarkup(fallback_state.fallback),
+      reply_markup
+    }, process.env.TELEGRAM_BOT_TOKEN);
     chat_tracker.last_message_sent = api_response.data.result;
     return api_response;
   }
