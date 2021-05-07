@@ -66,6 +66,7 @@ module.exports = {
       slots: {
         message_text: "bed_type",
       },
+      validation: "^General$|^Bed with Oxygen$|^HDU$|^ICU$|^CICU$|^ICU with Ventilator$",
       fallback: "Please select from one of the bed types: [[General][Bed with Oxygen][HDU][ICU][CICU][ICU with Ventilator]]",
       transitions: [
         {
