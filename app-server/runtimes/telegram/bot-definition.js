@@ -33,7 +33,6 @@ module.exports = {
         },
       ],
       reset_slots: true,
-      reset_slots_exceptions: ["bu_number", "covid_test_srf", "name", "age", "mobile_number", "address"],
     },
     {
       name: "new_request",
@@ -56,7 +55,6 @@ module.exports = {
         },
       ],
       reset_slots: true,
-      reset_slots_exceptions: ["bu_number", "covid_test_srf", "name", "age", "mobile_number", "address"],
     },
     {
       name: "spo2",
@@ -167,14 +165,14 @@ module.exports = {
       name: "bu_number",
       action: {
         type: "send_message",
-        text: "What is the 6-digit BU number? [[{bu_number}][Not yet assigned]]",
+        text: "What is the 6-digit BU number? [[{cache.bu_number}][Not yet assigned]]",
       },
       slots: {
         message_text: "bu_number",
       },
       validation: "^\\d{6}$|^Not yet assigned$",
       persist_slot: true,
-      fallback: "Please enter the 6-digit BU number: [[{bu_number}][Not yet assigned]]",
+      fallback: "Please enter the 6-digit BU number: [[{cache.bu_number}][Not yet assigned]]",
       transitions: [
         {
           on: "*",
@@ -186,13 +184,13 @@ module.exports = {
       name: "covid_test_srf",
       action: {
         type: "send_message",
-        text: "What is the 13-digit COVID test SRF ID? [[{covid_test_srf}]]",
+        text: "What is the 13-digit COVID test SRF ID? [[{cache.covid_test_srf}]]",
       },
       slots: {
         message_text: "covid_test_srf",
       },
       validation: "^\\d{13}$",
-      fallback: "Please enter the 13-digit COVID test SRF ID. [[{covid_test_srf}]]",
+      fallback: "Please enter the 13-digit COVID test SRF ID. [[{cache.covid_test_srf}]]",
       transitions: [
         {
           on: "*",
@@ -217,7 +215,7 @@ module.exports = {
       name: "name",
       action: {
         type: "send_message",
-        text: "What is the full name of the patient? [[{name}]]",
+        text: "What is the full name of the patient? [[{cache.name}]]",
       },
       slots: {
         message_text: "name",
@@ -233,13 +231,13 @@ module.exports = {
       name: "age",
       action: {
         type: "send_message",
-        text: "What is the age of the patient? Please enter a number between 1 and 120. [[{age}]]",
+        text: "What is the age of the patient? Please enter a number between 1 and 120. [[{cache.age}]]",
       },
       slots: {
         message_text: "age",
       },
       validation: "^[1-9][0-9]?$|^1[0-1]\\d$|^120$",
-      fallback: "Please enter a number between 1 and 120. [[{age}]]",
+      fallback: "Please enter a number between 1 and 120. [[{cache.age}]]",
       transitions: [
         {
           on: "*",
@@ -287,13 +285,13 @@ module.exports = {
       name: "mobile_number",
       action: {
         type: "send_message",
-        text: "What is the 10-digit mobile number of the patient (or the attender)? [[{mobile_number}]]",
+        text: "What is the 10-digit mobile number of the patient (or the attender)? [[{cache.mobile_number}]]",
       },
       slots: {
         message_text: "mobile_number",
       },
       validation: "^\\d{10}$",
-      fallback: "Please enter a 10-digit mobile number. [[{mobile_number}]]",
+      fallback: "Please enter a 10-digit mobile number. [[{cache.mobile_number}]]",
       transitions: [
         {
           on: "*",
@@ -305,7 +303,7 @@ module.exports = {
       name: "address",
       action: {
         type: "send_message",
-        text: "What is the address of the patient? [[{address}]]",
+        text: "What is the address of the patient? [[{cache.address}]]",
       },
       slots: {
         message_text: "address",

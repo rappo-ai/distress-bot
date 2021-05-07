@@ -576,7 +576,9 @@ function getTrackerForChat(chat_id) {
   if (!tracker[chat_id]) {
     tracker[chat_id] = {
       current_state_name: undefined,
-      store: {},
+      store: {
+        cache: {}
+      },
     };
   }
   return tracker[chat_id];
@@ -965,13 +967,13 @@ function removeReplyMarkup(text) {
 }
 
 function replaceSlots(text, chat_store, default_slot_value = "") {
-  const found_slots = [...text.matchAll(/{\s*\w+\s*}/g)];
+  const found_slots = [...text.matchAll(/{\s*[\w\.]+\s*}/g)];
   let delta = 0;
   found_slots.forEach(s => {
-    const slot_name = s[0].slice(1, -1).trim();
-    if (chat_store && chat_store[slot_name]) {
-      text = text.substring(0, s["index"] + delta) + chat_store[slot_name] + text.substring(s["index"] + delta + s[0].length);
-      delta = delta + chat_store[slot_name].length - s[0].length;
+    const slot_key = s[0].slice(1, -1).trim();
+    if (chat_store && getObjectProperty(chat_store, slot_key)) {
+      text = text.substring(0, s["index"] + delta) + getObjectProperty(chat_store, slot_key) + text.substring(s["index"] + delta + s[0].length);
+      delta = delta + getObjectProperty(chat_store, slot_key).length - s[0].length;
     } else {
       text = text.substring(0, s["index"] + delta) + default_slot_value + text.substring(s["index"] + delta + s[0].length);
       delta = delta + default_slot_value.length - s[0].length;
@@ -995,6 +997,7 @@ function addMessageSlotsToStore(slots, chat_store, message_text, message_id) {
           break;
       }
       chat_store[slot_key] = slot_value;
+      chat_store["cache"][slot_key] = slot_value;
     }
   }
 }
@@ -1121,7 +1124,7 @@ async function processPMUpdate(update, chat_tracker, global_store, bot_definitio
     next_state_name = await doCommand(command_match, chat_tracker, global_store, update, functions, bot_definition);
   } else if (current_state) {
     if (current_state.reset_slots) {
-      Object.keys(chat_store).forEach(key => (!current_state.reset_slots_exceptions || !current_state.reset_slots_exceptions.includes(key)) && delete chat_store[key]);
+      Object.keys(chat_store).forEach(key => key !== "cache" && delete chat_store[key]);
     }
 
     if (current_state.validation) {
