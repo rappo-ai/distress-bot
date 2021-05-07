@@ -915,6 +915,10 @@ ${chat_id}`;
     }
     return next_state_name;
   },
+  "ctBlockNextState": async function (update, chat_tracker, global_store, bot_definition) {
+    const covid_test_done = chat_tracker.store["covid_test_done"];
+    return (covid_test_done && covid_test_done === "Yes") ? "bu_number" : "collect_personal_details";
+  },
 };
 
 function getInlineKeyboard(text, chat_store, options = { remove_duplicates: true }) {

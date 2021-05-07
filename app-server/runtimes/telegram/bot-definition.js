@@ -181,7 +181,7 @@ module.exports = {
         },
         {
           on: "No",
-          to: "bu_number",
+          to: "ct_block_next",
         },
       ],
     },
@@ -199,9 +199,16 @@ module.exports = {
       transitions: [
         {
           on: "*",
-          to: "bu_number",
+          to: "ct_block_next",
         },
       ],
+    },
+    {
+      name: "ct_block_next",
+      action: {
+        type: "call_function",
+        method: "ctBlockNextState"
+      },
     },
     {
       name: "bu_number",
