@@ -3,7 +3,7 @@ const { get: getObjectProperty, has: hasObjectProperty } = require('lodash/objec
 
 const bot_definition = require("./bot-definition");
 const logger = require('../../logger');
-const { TELEGRAM_MESSAGE_TYPES, sendMessage, leaveChat, processPMUpdate, processGroupUpdate, getTrackerForChat, getChatId } = require('../../utils/telegram');
+const { TELEGRAM_MESSAGE_TYPES, sendMessage, leaveChat, processPMUpdate, processGroupUpdate, getTrackerForChat, getGlobalStore, getChatId } = require('../../utils/telegram');
 
 const bots = {};
 
@@ -86,13 +86,13 @@ async function processUpdate(task, callback) {
 addBot(process.env.TELEGRAM_BOT_USERNAME, process.env.TELEGRAM_BOT_SECRET, {
   onPMChatJoin: async function (update) {
     logger.info(`@${process.env.TELEGRAM_BOT_USERNAME} started PM chat with ${update.message.from.first_name} | ${update.message.from.username} | ${update.message.from.id} `);
-    return processPMUpdate(update, getTrackerForChat(getChatId(update)), bot_definition);
+    return processPMUpdate(update, getTrackerForChat(getChatId(update)), getGlobalStore(), bot_definition);
   },
   onPMChatMessage: async function (update) {
-    return processPMUpdate(update, getTrackerForChat(getChatId(update)), bot_definition);
+    return processPMUpdate(update, getTrackerForChat(getChatId(update)), getGlobalStore(), bot_definition);
   },
   onPMCallbackQuery: async function (update) {
-    return processPMUpdate(update, getTrackerForChat(getChatId(update)), bot_definition);
+    return processPMUpdate(update, getTrackerForChat(getChatId(update)), getGlobalStore(), bot_definition);
   },
   onPMChatBlocked: async function (update) {
     logger.info(`@${process.env.TELEGRAM_BOT_USERNAME} blocked by ${update.my_chat_member.from.first_name} | ${update.my_chat_member.from.username} | ${update.my_chat_member.from.id}`);
@@ -101,10 +101,10 @@ addBot(process.env.TELEGRAM_BOT_USERNAME, process.env.TELEGRAM_BOT_SECRET, {
     logger.info(`@${process.env.TELEGRAM_BOT_USERNAME} joined group ${update.message.chat.title} | ${update.message.chat.id} by ${update.message.from.first_name} | ${update.message.from.username} | ${update.message.from.id} `);
   },
   onGroupChatMessage: async function (update) {
-    return processGroupUpdate(update, getTrackerForChat(getChatId(update)), bot_definition);
+    return processGroupUpdate(update, getTrackerForChat(getChatId(update)), getGlobalStore(), bot_definition);
   },
   onGroupCallbackQuery: async function (update) {
-    return processGroupUpdate(update, getTrackerForChat(getChatId(update)), bot_definition);
+    return processGroupUpdate(update, getTrackerForChat(getChatId(update)), getGlobalStore(), bot_definition);
   },
   onGroupChatLeave: async function (update) {
     logger.info(`@${process.env.TELEGRAM_BOT_USERNAME} kicked in group ${update.my_chat_member.chat.title} | ${update.my_chat_member.chat.id} by ${update.my_chat_member.from.first_name} | ${update.my_chat_member.from.username} | ${update.my_chat_member.from.id} `);
