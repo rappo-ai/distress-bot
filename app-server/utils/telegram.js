@@ -3,6 +3,10 @@ const { get: getObjectProperty } = require('lodash/object');
 
 const logger = require('../logger');
 
+const { GoogleSpreadsheet } = require('google-spreadsheet');  
+
+const creds = require('../'+process.env.AUTH_CREDS); // Authentication Credentials
+
 const TELEGRAM_MESSAGE_TYPES = ["text", "animation", "audio", "document", "photo", "sticker", "video", "video_note", "voice", "caption", "contact", "dice", "game", "poll", "venue", "location"];
 
 async function callTelegramApi(endpoint, token, body = {}) {
@@ -653,9 +657,63 @@ function getDisplayName(user_name, first_name, last_name) {
 const en_strings = {
   "waiting_for_response": "Your message has been recorded. We are trying our best to help, but until we revert back to you with an update please dial 1912 or 108 for beds.\n\nWe wish a speedy recovery for your loved ones.",
 };
+
+async function addRow(ssid, dictionary){
+  
+  const doc = new GoogleSpreadsheet(ssid);
+  await doc.useServiceAccountAuth(creds);
+  await doc.loadInfo(); // loads document properties and worksheets
+  
+  // const sheet = await doc.sheetsByTitle[process.env.SHEET_NAME] ? await doc.sheetsByTitle[process.env.SHEET_NAME]: await doc.addSheet({ title : process.env.SHEET_NAME, headerValues: headers });
+  const sheet = await doc.sheetsByTitle[process.env.SHEET_NAME];
+  dictionary["date"] = new Date().toLocaleString(undefined, {timeZone: 'Asia/Kolkata'});
+  dictionary["resolved"] = "No";
+  // const keys = Object.keys(dictionary);
+  // console.log(keys);
+  const newRow = await sheet.addRow(dictionary); 
+
+
+  // const newRow = await sheet.addRow({Date : dictionary['date'], Requirement : dictionary["requirement"], 
+  // "SPO2 level" : dictionary["spo2"],"Bed type" : dictionary["bed_type"] , "Needs cylinder" : dictionary["needs_cylinder"],
+  // "Covid test done?" : dictionary["covid_test_done"], "Covid test result" : dictionary["covid_test_result"], 
+  // "BU number" : dictionary["bu_number"], "SRF ID" : dictionary["covid_test_srf"], 
+  // "Name" : dictionary["name"], "Age" :  dictionary["age"], "Gender" : dictionary["gender"],
+  // "Blood group" : dictionary["blood_group"] , "Mobile number" : dictionary["mobile_number"],
+  // "Address" : dictionary["address"], "Hospital preference" : dictionary["hospital_preference"], 
+  // "Resolved":"No"
+  //   });  
+  console.log("Successful. " + dictionary["name"]+ " added successfully.");
+  // console.log(dictionary["requirements"]);
+}
+
 const functions = {
   "init": async function (update, chat_tracker, global_store, bot_definition) {
     // TBD - initialization code (such as for spreadsheets)
+    const ssid = process.env.SPREADSHEET_ID // Spreadsheet ID
+    const doc = new GoogleSpreadsheet(ssid);
+    await doc.useServiceAccountAuth(creds);
+    await doc.loadInfo(); // loads document properties and worksheets
+    headers = ["date",
+    "requirement",
+    "spo2",
+    "bed_type",
+    "needs_cylinder",
+    "covid_test_done",
+    "covid_test_result",
+    "ct_scan_done",
+    "ct_score",
+    "bu_number",
+    "covid_test_srf",
+    "name",
+    "age",
+    "gender",
+    "blood_group",
+    "mobile_number",
+    "alt_mobile_number",
+    "address",
+    "hospital_preference", 
+    "resolved "];
+    const sheet = await doc.sheetsByTitle[process.env.SHEET_NAME] ? await doc.sheetsByTitle[process.env.SHEET_NAME]: await doc.addSheet({ title : process.env.SHEET_NAME, headerValues: headers });
   },
   "submitForm": async function (update, chat_tracker, global_store, bot_definition) {
     const chat_id = getChatId(update);
@@ -665,7 +723,12 @@ const functions = {
     const date = getDate(update);
 
     const user_display_name = getDisplayName(user_name, first_name, last_name);
-
+    
+    const ssid = process.env.SPREADSHEET_ID // Spreadsheet ID
+    
+    // console.log(chat_tracker.store);
+    
+    addRow(ssid, chat_tracker.store);
     let api_response;
     api_response = await sendMessage({
       chat_id,
