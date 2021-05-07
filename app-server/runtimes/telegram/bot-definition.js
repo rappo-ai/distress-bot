@@ -3,7 +3,7 @@ module.exports = {
   default_fallback: "Please read the instructions and respond as asked.",
   command_fallback: "This is not a valid command",
   debug_channel_chat_id: process.env.TELEGRAM_DEBUG_CHANNEL_CHAT_ID,
-  spreadsheet_keys: ["requirement", "spo2", "bed_type", "needs_cylinder", "covid_test_done", "covid_test_result", "ct_scan_done", "ct_score", "bu_number", "covid_test_srf", "name", "age", "gender", "blood_group", "mobile_number", "alt_mobile_number", "address", "hospital_preference"],
+  spreadsheet_keys: ["date","requirement", "spo2", "bed_type", "needs_cylinder", "covid_test_done", "covid_test_result", "ct_scan_done", "ct_score", "bu_number", "covid_test_srf", "name", "age", "gender", "blood_group", "mobile_number", "alt_mobile_number", "address", "hospital_preference","resolved"],
   commands: [
     {
       trigger: "/start",
