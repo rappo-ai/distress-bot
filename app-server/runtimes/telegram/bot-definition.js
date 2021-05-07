@@ -25,7 +25,7 @@ module.exports = {
       action: [
         {
           type: "send_message",
-          text: "Hi I am here to assist you with Covid requests for the state of Karnataka.",
+          text: "Hi! I am here to assist you with Covid requests for the state of Karnataka.",
         },
         {
           type: "goto_state",
@@ -43,6 +43,7 @@ module.exports = {
       slots: {
         message_text: "requirement",
       },
+      validation: "^Oxygen$|^Beds$",
       fallback: "Please select the category from one of the available options: [[Oxygen][Beds]]",
       transitions: [
         {
@@ -55,6 +56,23 @@ module.exports = {
         },
       ],
       reset_slots: true,
+    },
+    {
+      name: "bed_type",
+      action: {
+        type: "send_message",
+        text: "What type of bed do you need? [[General][Bed with Oxygen][HDU][ICU][CICU][ICU with Ventilator]]",
+      },
+      slots: {
+        message_text: "bed_type",
+      },
+      fallback: "Please select from one of the bed types: [[General][Bed with Oxygen][HDU][ICU][CICU][ICU with Ventilator]]",
+      transitions: [
+        {
+          on: "*",
+          to: "spo2",
+        },
+      ],
     },
     {
       name: "spo2",
@@ -75,29 +93,10 @@ module.exports = {
       ],
     },
     {
-      name: "bed_type",
-      action: {
-        type: "send_message",
-        text: "What type of bed do you need? [[Normal with Oxygen][Normal without Oxygen][ICU with Oxygen][ICU without Oxygen]]",
-      },
-      slots: {
-        message_text: "bed_type",
-      },
-      fallback: "Please select from one of the bed types: [[Normal with Oxygen][Normal without Oxygen][ICU with Oxygen][ICU without Oxygen]]",
-      transitions: [
-        {
-          on: "*",
-          to: "covid_test_done",
-        },
-      ],
-    },
-    {
       name: "check_spo2",
       action: {
         type: "call_function",
         method: "checkSpo2",
-        on_success: "covid_test_done",
-        on_failure: "needs_cylinder",
       },
     },
     {
@@ -135,7 +134,7 @@ module.exports = {
         },
         {
           on: "No",
-          to: "collect_personal_details",
+          to: "ct_scan_done",
         },
       ],
     },
@@ -169,7 +168,7 @@ module.exports = {
       name: "ct_scan_done",
       action: {
         type: "send_message",
-        text: "Have you taken a CT scan? [[Yes, No]]",
+        text: "Has the patient taken a CT scan? [[Yes, No]]",
       },
       slots: {
         message_text: "ct_scan_done",
@@ -190,7 +189,7 @@ module.exports = {
       name: "ct_score",
       action: {
         type: "send_message",
-        text: "What is your CT score? Please enter a number between 1 and 25.",
+        text: "What is the CT score? Please enter a number between 1 and 25.",
       },
       slots: {
         message_text: "ct_score",
