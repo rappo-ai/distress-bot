@@ -351,7 +351,7 @@ module.exports = {
       slots: {
         message_text: "alt_mobile_number",
       },
-      validation: "^\\d{10}$",
+      validation: "^\\d{10}$|^Skip$",
       fallback: "Please enter a 10-digit mobile number. [[{cache.alt_mobile_number}, Skip]]",
       transitions: [
         {
