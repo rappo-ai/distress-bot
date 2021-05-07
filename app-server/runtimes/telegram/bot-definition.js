@@ -1,5 +1,5 @@
 module.exports = {
-  start_state_id: "welcome",
+  start_state: "welcome",
   default_fallback: "Please read the instructions and respond as asked.",
   command_fallback: "This is not a valid command",
   debug_channel_chat_id: process.env.TELEGRAM_DEBUG_CHANNEL_CHAT_ID,
@@ -167,14 +167,14 @@ module.exports = {
       name: "bu_number",
       action: {
         type: "send_message",
-        text: "What is the 6-digit BU number? [[{bu_number}][Skip]]",
+        text: "What is the 6-digit BU number? [[{bu_number}][Not yet assigned]]",
       },
       slots: {
         message_text: "bu_number",
       },
-      validation: "^\\d{6}$|^Skip$",
+      validation: "^\\d{6}$|^Not yet assigned$",
       persist_slot: true,
-      fallback: "Please enter the 6-digit BU number: [[{bu_number}][Skip]]",
+      fallback: "Please enter the 6-digit BU number: [[{bu_number}][Not yet assigned]]",
       transitions: [
         {
           on: "*",
@@ -186,13 +186,13 @@ module.exports = {
       name: "covid_test_srf",
       action: {
         type: "send_message",
-        text: "What is the 13-digit COVID test SRF ID? [[{covid_test_srf}][Skip]]",
+        text: "What is the 13-digit COVID test SRF ID? [[{covid_test_srf}]]",
       },
       slots: {
         message_text: "covid_test_srf",
       },
-      validation: "^\\d{13}$|^Skip$",
-      fallback: "Please enter the 13-digit COVID test SRF ID. [[{covid_test_srf}][Skip]]",
+      validation: "^\\d{13}$",
+      fallback: "Please enter the 13-digit COVID test SRF ID. [[{covid_test_srf}]]",
       transitions: [
         {
           on: "*",
@@ -305,7 +305,7 @@ module.exports = {
       name: "address",
       action: {
         type: "send_message",
-        text: "What is the address of the patient? [[{address}][Skip]]",
+        text: "What is the address of the patient? [[{address}]]",
       },
       slots: {
         message_text: "address",
@@ -365,19 +365,13 @@ module.exports = {
         {
           type: "call_function",
           method: "submitForm",
-          on_success: "submit_form_success",
+          on_success: "wait_for_admin_response",
           on_failure: "submit_form_failure",
         },
       ],
     },
     {
-      name: "submit_form_success",
-      action: {
-        type: "send_message",
-        text: `Thank you for reaching out to us. Your message has been recorded. We are trying our best to help, but until we revert back to you with an update please dial 1912 or 108 for beds.
- 
-We wish a speedy recovery for your loved ones. [[Cancel Request]]`,
-      },
+      name: "wait_for_admin_response",
       transitions: [
         {
           on: "Cancel Request",
@@ -412,28 +406,9 @@ We wish a speedy recovery for your loved ones. [[Cancel Request]]`,
       action: {
         type: "call_function",
         method: "appendUserForm",
-        on_success: "append_form_success",
+        on_success: "wait_for_admin_response",
         on_failure: "append_form_failure",
       },
-    },
-    {
-      name: "append_form_success",
-      action: {
-        type: "send_message",
-        text: `Your message has been recorded. We are trying our best to help, but until we revert back to you with an update please dial 1912 or 108 for beds.
-
-We wish a speedy recovery for your loved ones. [[Cancel Request]]`,
-      },
-      transitions: [
-        {
-          on: "Cancel Request",
-          to: "cancel_request",
-        },
-        {
-          on: "*",
-          to: "append_form",
-        },
-      ],
     },
     {
       name: "append_form_failure",
