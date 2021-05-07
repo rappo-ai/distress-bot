@@ -795,9 +795,7 @@ ${chat_id}`;
 
   "checkSpo2": async function (update, chat_tracker, global_store, bot_definition) {
     const spo2 = chat_tracker.store["spo2"];
-    if (spo2 && parseInt(spo2) < 90) {
-      throw new Error("oxygen too low");
-    }
+    return (spo2 && parseInt(spo2) < 90) ? "needs_cylinder" : "covid_test_done";
   },
 
   "appendAdminForm": async function (update, chat_tracker, global_store, bot_definition) {
