@@ -680,8 +680,10 @@ Requirement - { requirement }
 SPO2 level - { spo2 }
 Bed type - { bed_type }
 Needs cylinder - { needs_cylinder }
-Covid test done ? - { covid_test_done }
+Covid test done? - { covid_test_done }
 Covid test result - { covid_test_result }
+CT scan done? - { ct_scan_done }
+CT score - { ct_score }
 BU number - { bu_number }
 SRF ID - { covid_test_srf }
 Name - { name }
@@ -689,6 +691,7 @@ Age - { age }
 Gender - { gender }
 Blood group - { blood_group }
 Mobile number - { mobile_number }
+Alt mobile number - { alt_mobile_number }
 Address - { address }
 Hospital preference - { hospital_preference }
 

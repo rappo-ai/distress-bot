@@ -156,8 +156,51 @@ module.exports = {
           to: "bu_number",
         },
         {
+          on: "Negative",
+          to: "ct_scan_done",
+        },
+        {
           on: "*",
           to: "covid_test_srf",
+        },
+      ],
+    },
+    {
+      name: "ct_scan_done",
+      action: {
+        type: "send_message",
+        text: "Have you taken a CT scan? [[Yes, No]]",
+      },
+      slots: {
+        message_text: "ct_scan_done",
+      },
+      fallback: "Please confirm with a Yes / No. [[Yes, No]]",
+      transitions: [
+        {
+          on: "Yes",
+          to: "ct_score",
+        },
+        {
+          on: "No",
+          to: "bu_number",
+        },
+      ],
+    },
+    {
+      name: "ct_score",
+      action: {
+        type: "send_message",
+        text: "What is your CT score? Please enter a number between 1 and 25.",
+      },
+      slots: {
+        message_text: "ct_score",
+      },
+      validation: "^[1-9]$|^1[0-9]$|^2[0-5]$",
+      fallback: "Please enter a number between 1 and 25.",
+      transitions: [
+        {
+          on: "*",
+          to: "bu_number",
         },
       ],
     },
@@ -295,6 +338,24 @@ module.exports = {
       transitions: [
         {
           on: "*",
+          to: "alt_mobile_number",
+        },
+      ],
+    },
+    {
+      name: "alt_mobile_number",
+      action: {
+        type: "send_message",
+        text: "Please share an alternate mobile number if you have one. [[{cache.alt_mobile_number}, Skip]]",
+      },
+      slots: {
+        message_text: "alt_mobile_number",
+      },
+      validation: "^\\d{10}$",
+      fallback: "Please enter a 10-digit mobile number. [[{cache.alt_mobile_number}, Skip]]",
+      transitions: [
+        {
+          on: "*",
           to: "address",
         },
       ],
@@ -338,7 +399,7 @@ module.exports = {
       action: [
         {
           type: "send_message",
-          text: "Summary of your request:\n\nRequirement - {requirement}\nSPO2 level - {spo2}\nBed type - {bed_type}\nNeeds cylinder - {needs_cylinder}\nCovid test done? - {covid_test_done}\nCovid test result - {covid_test_result}\nBU number - {bu_number}\nSRF ID - {covid_test_srf}\nName - {name}\nAge - {age}\nGender - {gender}\nBlood group - {blood_group}\nMobile number - {mobile_number}\nAddress - {address}\nHospital preference - {hospital_preference}",
+          text: "Summary of your request:\n\nRequirement - {requirement}\nSPO2 level - {spo2}\nBed type - {bed_type}\nNeeds cylinder - {needs_cylinder}\nCovid test done? - {covid_test_done}\nCovid test result - {covid_test_result}\nCT Scan done? - {ct_scan_done}\nCT Score - {ct_score}\nBU number - {bu_number}\nSRF ID - {covid_test_srf}\nName - {name}\nAge - {age}\nGender - {gender}\nBlood group - {blood_group}\nMobile number - {mobile_number}\nAlt mobile number - {alt_mobile_number}\nAddress - {address}\nHospital preference - {hospital_preference}",
         },
         {
           type: "send_message",
