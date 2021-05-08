@@ -367,6 +367,20 @@ async function leaveChat({ chat_id }, botToken) {
   );
 }
 
+async function answerCallbackQuery({ callback_query_id, text = "", show_alert = false, url = "", cache_time = 0 }, botToken) {
+  return callTelegramApi(
+    'answerCallbackQuery',
+    botToken,
+    {
+      callback_query_id,
+      text,
+      show_alert,
+      url,
+      cache_time,
+    },
+  )
+}
+
 async function cloneMessage({ message, chat_id, reply_to_message_id = "", reply_markup = {} }, botToken) {
   let apiResponse;
   TELEGRAM_MESSAGE_TYPES.forEach(type => {
@@ -636,6 +650,9 @@ function isCallbackQuery(update) {
   return !!getObjectProperty(update, "callback_query");
 }
 
+function getCallbackQueryId(update) {
+  return getObjectProperty(update, "callback_query.id");
+}
 function formatDate(unixTs) {
   return new Date(unixTs * 1000).toLocaleString("en-GB",
     {
@@ -679,6 +696,21 @@ async function addRow(ssid, dictionary){
 }
 
 const functions = {
+  "validateForwardTemplate": async function (update, chat_tracker, global_store, bot_definition) {
+    const chat_id = getChatId(update);
+    const message_text = getMessageText(update);
+    const slots_to_validate = ["name", "age", "address", "spo2", "mobile_number", "srf_id", "registered_1912_108"];
+    const is_valid_template = false;
+    // tbd  - validate the above slots and store the result in is_valid_template
+    if (!is_valid_template) {
+      await sendMessage({
+        chat_id,
+        text: `The template is invalid. Please send the following mandatory fields:\n\n${slots_to_validate.join('\n')}`,
+        reply_markup: { inline_keyboard: getInlineKeyboard("[[Cancel]]", chat_tracker.store) },
+      }, process.env.TELEGRAM_BOT_TOKEN);
+    }
+    return is_valid_template ? "summary" : "forward_template_sleep";
+  },
   "init": async function (update, chat_tracker, global_store, bot_definition) {
     // TBD - initialization code (such as for spreadsheets)
     const ssid = process.env.SPREADSHEET_ID // Spreadsheet ID
@@ -724,7 +756,7 @@ Covid test result - { covid_test_result }
 CT scan done? - { ct_scan_done }
 CT score - { ct_score }
 BU number - { bu_number }
-SRF ID - { covid_test_srf }
+SRF ID - { srf_id }
 Name - { name }
 Age - { age }
 Gender - { gender }
@@ -733,6 +765,7 @@ Mobile number - { mobile_number }
 Alt mobile number - { alt_mobile_number }
 Address - { address }
 Hospital preference - { hospital_preference }
+Registered with 1912 / 108 - { registered_1912_108 }
 
 Reply to this message to send a message to user in PM.
 
@@ -948,7 +981,7 @@ ${chat_id}`;
         api_response = await sendMessage({
           chat_id: user_chat_id,
           text: `Your request has been closed. Ping me anytime to create a new request.`,
-        }, process.env.TEL_BOT_TOKEN);
+        }, process.env.TELEGRAM_BOT_TOKEN);
         next_state_name = "sleep";
         break;
     }
@@ -1146,7 +1179,15 @@ async function processPMUpdate(update, chat_tracker, global_store, bot_definitio
   let next_state_transition;
 
   try {
-    if (update.callback_query && chat_id && callback_message_id) {
+    if (isCallbackQuery(update)) {
+      // must call answerCallbackQuery as per the docs (even if we don't show an alert)
+      answerCallbackQuery({ callback_query_id: getCallbackQueryId(update) }, process.env.TELEGRAM_BOT_TOKEN).catch(err => logger.error(`answerCallbackQuery ${err}`));
+    }
+  } catch {
+    logger.error(`processPMUpdate answerCallbackQuery ${err}`);
+  }
+  try {
+    if (isCallbackQuery(update) && chat_id && callback_message_id) {
       // hiding the quick reply buttons when any one is clicked
       await editMessageText({
         chat_id,
@@ -1227,9 +1268,14 @@ async function processGroupUpdate(update, chat_tracker, global_store, bot_defini
   if (isReplyToBot(update) && reply_to_bot_action) {
     await doBotAction(reply_to_bot_action, chat_tracker, global_store, update, functions, bot_definition);
   }
-  const callback_query_action = getObjectProperty(bot_definition, "group.callback_query.action");
-  if (isCallbackQuery(update) && callback_query_action) {
-    await doBotAction(callback_query_action, chat_tracker, global_store, update, functions, bot_definition);
+
+  if (isCallbackQuery(update)) {
+    const callback_query_action = getObjectProperty(bot_definition, "group.callback_query.action");
+    if (callback_query_action) {
+      await doBotAction(callback_query_action, chat_tracker, global_store, update, functions, bot_definition);
+    }
+    // must call answerCallbackQuery as per the docs (even if we don't show an alert)
+    answerCallbackQuery({ callback_query_id: getCallbackQueryId(update) }, process.env.TELEGRAM_BOT_TOKEN).catch(err => logger.error(`answerCallbackQuery ${err}`));
   }
 }
 
