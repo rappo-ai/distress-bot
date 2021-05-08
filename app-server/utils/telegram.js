@@ -671,6 +671,21 @@ const en_strings = {
   "waiting_for_response": "Your message has been recorded. We are trying our best to help, but until we revert back to you with an update please dial 1912 or 108 for beds.\n\nWe wish a speedy recovery for your loved ones.",
 };
 const functions = {
+  "validateForwardTemplate": async function (update, chat_tracker, global_store, bot_definition) {
+    const chat_id = getChatId(update);
+    const message_text = getMessageText(update);
+    const slots_to_validate = ["name", "age", "address", "spo2", "mobile_number", "srf_id", "registered_1912_108"];
+    const is_valid_template = false;
+    // tbd  - validate the above slots and store the result in is_valid_template
+    if (!is_valid_template) {
+      await sendMessage({
+        chat_id,
+        text: `The template is invalid. Please send the following mandatory fields:\n\n${slots_to_validate.join('\n')}`,
+        reply_markup: { inline_keyboard: getInlineKeyboard("[[Cancel]]", chat_tracker.store) },
+      }, process.env.TELEGRAM_BOT_TOKEN);
+    }
+    return is_valid_template ? "summary" : "forward_template_sleep";
+  },
   "init": async function (update, chat_tracker, global_store, bot_definition) {
     // TBD - initialization code (such as for spreadsheets)
   },
@@ -705,7 +720,7 @@ Covid test result - { covid_test_result }
 CT scan done? - { ct_scan_done }
 CT score - { ct_score }
 BU number - { bu_number }
-SRF ID - { covid_test_srf }
+SRF ID - { srf_id }
 Name - { name }
 Age - { age }
 Gender - { gender }
@@ -714,6 +729,7 @@ Mobile number - { mobile_number }
 Alt mobile number - { alt_mobile_number }
 Address - { address }
 Hospital preference - { hospital_preference }
+Registered with 1912 / 108 - { registered_1912_108 }
 
 Reply to this message to send a message to user in PM.
 

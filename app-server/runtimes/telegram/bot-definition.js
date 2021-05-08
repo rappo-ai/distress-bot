@@ -30,10 +30,70 @@ module.exports = {
         },
         {
           type: "goto_state",
-          state: "new_request",
+          state: "request_type",
         },
       ],
       reset_slots: true,
+    },
+    {
+      name: "request_type",
+      action: [
+        {
+          type: "send_message",
+          text: "Do you want to forward a request template or create a new request? [[Forward Template, New Request]]",
+        },
+      ],
+      fallback: "Please select one of the available options: [[Forward Template, New Request]]",
+      transitions: [
+        {
+          on: "Forward Template",
+          to: "forward_template",
+        },
+        {
+          on: "New Request",
+          to: "new_request",
+        },
+      ],
+      reset_slots: true,
+    },
+    {
+      name: "forward_template",
+      action: [
+        {
+          type: "send_message",
+          text: "Please send us the request in the following format:\n\n1. Patient Name : \n2. Age : \n3. Area / Location : \n4. Symptoms : \n5. Since how many days : \n6. SPO2 Level : \n7. Is patient on Oxygen Cylinder ? : \n8. Searching Hospital Bed Since ? : \n9. List of Hospitals Visited : \n10. Covid Test Done ? : \n11. Covid Result (+ve/-ve/Awaiting) : \n12. Prefer Govt/Pvt/Any Hospital ? \n13. Attender name & Mobile No : \n14. Relation to the Patient : \n15. SRF ID : \n16. BU number : \n17. Bed type ?: \n18. Registered with 1912/108 :[[Cancel]]",
+        },
+      ],
+      transitions: [
+        {
+          on: "Cancel",
+          to: "request_type",
+        },
+        {
+          on: "*",
+          to: "validate_forward_template",
+        },
+      ],
+    },
+    {
+      name: "validate_forward_template",
+      action: {
+        type: "call_function",
+        method: "validateForwardTemplate",
+      },
+    },
+    {
+      name: "forward_template_sleep",
+      transitions: [
+        {
+          on: "Cancel",
+          to: "request_type",
+        },
+        {
+          on: "*",
+          to: "validate_forward_template",
+        },
+      ],
     },
     {
       name: "new_request",
@@ -162,7 +222,7 @@ module.exports = {
         },
         {
           on: "*",
-          to: "covid_test_srf",
+          to: "srf_id",
         },
       ],
     },
@@ -227,21 +287,21 @@ module.exports = {
       transitions: [
         {
           on: "*",
-          to: "covid_test_srf",
+          to: "srf_id",
         },
       ],
     },
     {
-      name: "covid_test_srf",
+      name: "srf_id",
       action: {
         type: "send_message",
-        text: "What is the 13-digit COVID test SRF ID? [[{cache.covid_test_srf}]]",
+        text: "What is the 13-digit COVID test SRF ID? [[{cache.srf_id}]]",
       },
       slots: {
-        message_text: "covid_test_srf",
+        message_text: "srf_id",
       },
       validation: "^\\d{13}$",
-      fallback: "Please enter the 13-digit COVID test SRF ID. [[{cache.covid_test_srf}]]",
+      fallback: "Please enter the 13-digit COVID test SRF ID. [[{cache.srf_id}]]",
       transitions: [
         {
           on: "*",
@@ -398,6 +458,24 @@ module.exports = {
       transitions: [
         {
           on: "*",
+          to: "registered_1912_108",
+        },
+      ],
+    },
+    {
+      name: "registered_1912_108",
+      action: {
+        type: "send_message",
+        text: "Have your registered with 1912 / 108? [[Yes, No]]",
+      },
+      slots: {
+        message_text: "registered_1912_108",
+      },
+      validation: "^Yes$|^No$",
+      fallback: "Please confirm with a Yes / No. [[Yes, No]]",
+      transitions: [
+        {
+          on: "*",
           to: "summary",
         },
       ],
@@ -407,7 +485,7 @@ module.exports = {
       action: [
         {
           type: "send_message",
-          text: "Summary of your request:\n\nRequirement - {requirement}\nSPO2 level - {spo2}\nBed type - {bed_type}\nNeeds cylinder - {needs_cylinder}\nCovid test done? - {covid_test_done}\nCovid test result - {covid_test_result}\nCT Scan done? - {ct_scan_done}\nCT Score - {ct_score}\nBU number - {bu_number}\nSRF ID - {covid_test_srf}\nName - {name}\nAge - {age}\nGender - {gender}\nBlood group - {blood_group}\nMobile number - {mobile_number}\nAlt mobile number - {alt_mobile_number}\nAddress - {address}\nHospital preference - {hospital_preference}",
+          text: "Summary of your request:\n\nRequirement - {requirement}\nSPO2 level - {spo2}\nBed type - {bed_type}\nNeeds cylinder - {needs_cylinder}\nCovid test done? - {covid_test_done}\nCovid test result - {covid_test_result}\nCT Scan done? - {ct_scan_done}\nCT Score - {ct_score}\nBU number - {bu_number}\nSRF ID - {srf_id}\nName - {name}\nAge - {age}\nGender - {gender}\nBlood group - {blood_group}\nMobile number - {mobile_number}\nAlt mobile number - {alt_mobile_number}\nAddress - {address}\nHospital preference - {hospital_preference}\nRegistered with 1912 / 108 - {registered_1912_108}",
         },
         {
           type: "send_message",
