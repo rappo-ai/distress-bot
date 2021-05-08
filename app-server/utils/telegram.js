@@ -1122,6 +1122,10 @@ async function processPMUpdate(update, chat_tracker, global_store, bot_definitio
       // must call answerCallbackQuery as per the docs (even if we don't show an alert)
       answerCallbackQuery({ callback_query_id: getCallbackQueryId(update) }, process.env.TELEGRAM_BOT_TOKEN).catch(err => logger.error(`answerCallbackQuery ${err}`));
     }
+  } catch {
+    logger.error(`processPMUpdate answerCallbackQuery ${err}`);
+  }
+  try {
     if (isCallbackQuery(update) && chat_id && callback_message_id) {
       // hiding the quick reply buttons when any one is clicked
       await editMessageText({
