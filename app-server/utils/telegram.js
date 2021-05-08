@@ -686,6 +686,9 @@ const functions = {
     }
     return is_valid_template ? "summary" : "forward_template_sleep";
   },
+  "init": async function (update, chat_tracker, global_store, bot_definition) {
+    // TBD - initialization code (such as for spreadsheets)
+  },
   "submitForm": async function (update, chat_tracker, global_store, bot_definition) {
     const chat_id = getChatId(update);
     const user_name = getUserName(update);
@@ -1040,6 +1043,22 @@ function addMessageSlotsToStore(slots, chat_store, message_text, message_id) {
   }
 }
 
+async function callFunction(action, update, chat_tracker, global_store, bot_definition) {
+  let next_state_name;
+  if (functions[action.method]) {
+    try {
+      next_state_name = await functions[action.method](update, chat_tracker, global_store, bot_definition);
+      if (!next_state_name) {
+        next_state_name = action.on_success;
+      }
+    } catch (err) {
+      logger.error(`call_function ${err} `);
+      next_state_name = action.on_failure;
+    }
+  }
+  return next_state_name;
+}
+
 async function doBotAction(action, chat_tracker, global_store, update, functions, bot_definition) {
   const chat_id = getChatId(update);
   let next_state_name;
@@ -1062,17 +1081,7 @@ async function doBotAction(action, chat_tracker, global_store, update, functions
         chat_tracker.last_message_sent = api_response.data.result;
         break;
       case "call_function":
-        if (functions[action.method]) {
-          try {
-            next_state_name = await functions[action.method](update, chat_tracker, global_store, bot_definition);
-            if (!next_state_name) {
-              next_state_name = action.on_success;
-            }
-          } catch (err) {
-            logger.error(`call_function ${err} `);
-            next_state_name = action.on_failure;
-          }
-        }
+        next_state_name = await callFunction(action, update, chat_tracker, global_store, bot_definition);
         break;
       case "goto_state":
         next_state_name = action.state;
@@ -1267,4 +1276,5 @@ module.exports = {
   getTrackerForChat,
   getGlobalStore,
   getChatId,
+  callFunction,
 };
