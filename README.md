@@ -21,7 +21,6 @@ Distress Bot for Sahaya group
     - NGROK_REGION [Optional] - the 2-character ngrok region code; eg: us, eu, in, etc.
     - HOST [Optional] - in production, the domain name and path to the server
     - SPREADSHEET_ID [Mandatory] - the string between /d/ and /edit in URL of Google Spreadsheet; check out the website for detailed explanation https://developers.google.com/sheets/api/guides/concepts#spreadsheet_id .
-    - AUTH_CREDS - ask administrator for the appropriate json file.
     - SHEET_NAME - name of the sheet you want to make in spreadsheet where you want to append all data.
 
 ## Build Option 1 - Docker (recommended)
