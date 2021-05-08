@@ -1,9 +1,9 @@
 const axios = require('axios').default;
 const { get: getObjectProperty } = require('lodash/object');
-
+const sheetUtil = require('./spreadsheet-utils');
 const logger = require('../logger');
 
-const { GoogleSpreadsheet } = require('google-spreadsheet');  
+
 
 const creds = require('../client_secret.json'); // Authentication Credentials
 
@@ -676,24 +676,24 @@ const en_strings = {
 };
 
 // add a row to the Spreadsheet with ssid value
-async function addRow(ssid, dictionary){
+// async function addRow(ssid, dictionary){
   
-  const doc = new GoogleSpreadsheet(ssid);
-  await doc.useServiceAccountAuth(creds);
-  await doc.loadInfo(); // loads document properties and worksheets
+//   const doc = new GoogleSpreadsheet(ssid);
+//   await doc.useServiceAccountAuth(creds);
+//   await doc.loadInfo(); // loads document properties and worksheets
   
-  // calls sheet object named SHEET_NAME
-  const sheet = await doc.sheetsByTitle[process.env.SHEET_NAME];
+//   // calls sheet object named SHEET_NAME
+//   const sheet = await doc.sheetsByTitle[process.env.SHEET_NAME];
 
-  // attaches datetime stamp and marks case as unresolved (since its just added)
-  dictionary["date"] = new Date().toLocaleString(undefined, {timeZone: 'Asia/Kolkata'});
-  dictionary["resolved"] = "No";
+//   // attaches datetime stamp and marks case as unresolved (since its just added)
+//   dictionary["date"] = new Date().toLocaleString(undefined, {timeZone: 'Asia/Kolkata'});
+//   dictionary["resolved"] = "No";
   
-  const newRow = await sheet.addRow(dictionary); 
+//   const newRow = await sheet.addRow(dictionary); 
 
-  // console.log(dictionary["name"]+ " added successfully to spreadsheet. RFID of the person: "+ dictionary["covid_test_srf"]);
+//   // console.log(dictionary["name"]+ " added successfully to spreadsheet. RFID of the person: "+ dictionary["covid_test_srf"]);
 
-}
+// }
 
 const functions = {
   "validateForwardTemplate": async function (update, chat_tracker, global_store, bot_definition) {
@@ -713,13 +713,14 @@ const functions = {
   },
   "init": async function (update, chat_tracker, global_store, bot_definition) {
     // TBD - initialization code (such as for spreadsheets)
-    const ssid = process.env.SPREADSHEET_ID // Spreadsheet ID
-    const doc = new GoogleSpreadsheet(ssid);
-    await doc.useServiceAccountAuth(creds);
-    await doc.loadInfo(); // loads document properties and worksheets
+    // const ssid = process.env.SPREADSHEET_ID; // Spreadsheet ID
+    sheetUtil.createSpreadsheet(update, chat_tracker, global_store, bot_definition);
+    // const doc = new GoogleSpreadsheet(ssid);
+    // await doc.useServiceAccountAuth(creds);
+    // await doc.loadInfo(); // loads document properties and worksheets
     
-    // bot_definition.spreadsheet_keys contains the spreadhseet headers
-    const sheet = await doc.sheetsByTitle[process.env.SHEET_NAME] ? await doc.sheetsByTitle[process.env.SHEET_NAME]: await doc.addSheet({ title : process.env.SHEET_NAME, headerValues: bot_definition.spreadsheet_keys });
+    // // bot_definition.spreadsheet_keys contains the spreadhseet headers
+    // const sheet = await doc.sheetsByTitle[process.env.SHEET_NAME] ? await doc.sheetsByTitle[process.env.SHEET_NAME]: await doc.addSheet({ title : process.env.SHEET_NAME, headerValues: bot_definition.spreadsheet_keys });
   },
   "submitForm": async function (update, chat_tracker, global_store, bot_definition) {
     const chat_id = getChatId(update);
@@ -732,7 +733,7 @@ const functions = {
     
     // To add row to the spreadsheet
     const ssid = process.env.SPREADSHEET_ID // Spreadsheet ID
-    addRow(ssid, chat_tracker.store);
+    sheetUtil.addRow(ssid, chat_tracker.store);
     
     let api_response;
     api_response = await sendMessage({
