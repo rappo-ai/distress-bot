@@ -363,6 +363,20 @@ async function leaveChat({ chat_id }, botToken) {
   );
 }
 
+async function answerCallbackQuery({ callback_query_id, text = "", show_alert = false, url = "", cache_time = 0 }, botToken) {
+  return callTelegramApi(
+    'answerCallbackQuery',
+    botToken,
+    {
+      callback_query_id,
+      text,
+      show_alert,
+      url,
+      cache_time,
+    },
+  )
+}
+
 async function cloneMessage({ message, chat_id, reply_to_message_id = "", reply_markup = {} }, botToken) {
   let apiResponse;
   TELEGRAM_MESSAGE_TYPES.forEach(type => {
@@ -632,6 +646,9 @@ function isCallbackQuery(update) {
   return !!getObjectProperty(update, "callback_query");
 }
 
+function getCallbackQueryId(update) {
+  return getObjectProperty(update, "callback_query.id");
+}
 function formatDate(unixTs) {
   return new Date(unixTs * 1000).toLocaleString("en-GB",
     {
@@ -912,7 +929,7 @@ ${chat_id}`;
         api_response = await sendMessage({
           chat_id: user_chat_id,
           text: `Your request has been closed. Ping me anytime to create a new request.`,
-        }, process.env.TEL_BOT_TOKEN);
+        }, process.env.TELEGRAM_BOT_TOKEN);
         next_state_name = "sleep";
         break;
     }
@@ -1110,7 +1127,15 @@ async function processPMUpdate(update, chat_tracker, global_store, bot_definitio
   let next_state_transition;
 
   try {
-    if (update.callback_query && chat_id && callback_message_id) {
+    if (isCallbackQuery(update)) {
+      // must call answerCallbackQuery as per the docs (even if we don't show an alert)
+      answerCallbackQuery({ callback_query_id: getCallbackQueryId(update) }, process.env.TELEGRAM_BOT_TOKEN).catch(err => logger.error(`answerCallbackQuery ${err}`));
+    }
+  } catch {
+    logger.error(`processPMUpdate answerCallbackQuery ${err}`);
+  }
+  try {
+    if (isCallbackQuery(update) && chat_id && callback_message_id) {
       // hiding the quick reply buttons when any one is clicked
       await editMessageText({
         chat_id,
@@ -1191,9 +1216,14 @@ async function processGroupUpdate(update, chat_tracker, global_store, bot_defini
   if (isReplyToBot(update) && reply_to_bot_action) {
     await doBotAction(reply_to_bot_action, chat_tracker, global_store, update, functions, bot_definition);
   }
-  const callback_query_action = getObjectProperty(bot_definition, "group.callback_query.action");
-  if (isCallbackQuery(update) && callback_query_action) {
-    await doBotAction(callback_query_action, chat_tracker, global_store, update, functions, bot_definition);
+
+  if (isCallbackQuery(update)) {
+    const callback_query_action = getObjectProperty(bot_definition, "group.callback_query.action");
+    if (callback_query_action) {
+      await doBotAction(callback_query_action, chat_tracker, global_store, update, functions, bot_definition);
+    }
+    // must call answerCallbackQuery as per the docs (even if we don't show an alert)
+    answerCallbackQuery({ callback_query_id: getCallbackQueryId(update) }, process.env.TELEGRAM_BOT_TOKEN).catch(err => logger.error(`answerCallbackQuery ${err}`));
   }
 }
 
