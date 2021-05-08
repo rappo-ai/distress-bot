@@ -5,7 +5,7 @@ const logger = require('../logger');
 
 const { GoogleSpreadsheet } = require('google-spreadsheet');  
 
-const creds = require('../'+process.env.AUTH_CREDS); // Authentication Credentials
+const creds = require('../client_secret.json'); // Authentication Credentials
 
 const TELEGRAM_MESSAGE_TYPES = ["text", "animation", "audio", "document", "photo", "sticker", "video", "video_note", "voice", "caption", "contact", "dice", "game", "poll", "venue", "location"];
 
@@ -674,7 +674,7 @@ async function addRow(ssid, dictionary){
   
   const newRow = await sheet.addRow(dictionary); 
 
-  console.log(dictionary["name"]+ " added successfully to spreadsheet. RFID of the person: "+ dictionary["covid_test_srf"]);
+  // console.log(dictionary["name"]+ " added successfully to spreadsheet. RFID of the person: "+ dictionary["covid_test_srf"]);
 
 }
 
