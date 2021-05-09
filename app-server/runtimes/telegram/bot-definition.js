@@ -15,8 +15,7 @@ module.exports = {
     {
       trigger: "/restart",
       action: {
-        type: "goto_state",
-        state: "welcome",
+        type: "restart",
       },
     },
   ],
@@ -51,7 +50,7 @@ module.exports = {
         },
         {
           on: "New Request",
-          to: "new_request",
+          to: "srf_id",
         },
       ],
       reset_slots: true,
@@ -83,7 +82,7 @@ module.exports = {
       },
     },
     {
-      name: "forward_template_sleep",
+      name: "forward_template_retry",
       transitions: [
         {
           on: "Cancel",
@@ -96,7 +95,55 @@ module.exports = {
       ],
     },
     {
-      name: "new_request",
+      name: "srf_id",
+      action: {
+        type: "send_message",
+        text: "Please enter the 13-digit SRF ID of the Covid RTPCR test done. [[{cache.srf_id}][RTPCR test not done]]",
+      },
+      slots: {
+        message_text: "srf_id",
+      },
+      validation: "^\\d{13}$|^RTPCR test not done$",
+      fallback: "You need to enter the 13-digit SRF ID or click one of the options below: [[{cache.srf_id}][RTPCR test not done]]",
+      transitions: [
+        {
+          on: "RTPCR test not done",
+          to: "requirement",
+        },
+        {
+          on: "*",
+          to: "check_duplicate_srf_id",
+        },
+      ],
+    },
+    {
+      name: "check_duplicate_srf_id",
+      action: {
+        type: "call_function",
+        method: "checkDuplicateSrfId",
+      },
+    },
+    {
+      name: "confirm_duplicate_update",
+      action: {
+        type: "send_message",
+        text: "A request for this SRF ID already exists with the following details:\n\nRequirement - {requirement}\nSPO2 level - {spo2}\nBed type - {bed_type}\nNeeds cylinder - {needs_cylinder}\nCovid test done? - {covid_test_done}\nCovid test result - {covid_test_result}\nCT Scan done? - {ct_scan_done}\nCT Score - {ct_score}\nBU number - {bu_number}\nSRF ID - {srf_id}\nName - {name}\nAge - {age}\nGender - {gender}\nBlood group - {blood_group}\nMobile number - {mobile_number}\nAlt mobile number - {alt_mobile_number}\nAddress - {address}\nHospital preference - {hospital_preference}\nRegistered with 1912 / 108 - {registered_1912_108}\n\nDo you want to update this request? [[Yes, No]]"
+      },
+      validation: "^Yes$|^No$",
+      fallback: "Please confirm with a Yes / No. [[Yes, No]]",
+      transitions: [
+        {
+          on: "Yes",
+          to: "requirement",
+        },
+        {
+          on: "No",
+          to: "sleep",
+        },
+      ]
+    },
+    {
+      name: "requirement",
       action: {
         type: "send_message",
         text: "Please select the category for which you want assistance: [[Oxygen][Beds]]",
@@ -116,7 +163,6 @@ module.exports = {
           to: "bed_type",
         },
       ],
-      reset_slots: true,
     },
     {
       name: "bed_type",
@@ -182,23 +228,9 @@ module.exports = {
     {
       name: "covid_test_done",
       action: {
-        type: "send_message",
-        text: "Has the patient done a COVID test? [[Yes, No]]",
+        type: "call_function",
+        method: "isCovidTestDone",
       },
-      slots: {
-        message_text: "covid_test_done",
-      },
-      fallback: "Please confirm with a Yes / No. [[Yes, No]]",
-      transitions: [
-        {
-          on: "Yes",
-          to: "covid_test_result",
-        },
-        {
-          on: "No",
-          to: "ct_scan_done",
-        },
-      ],
     },
     {
       name: "covid_test_result",
@@ -222,7 +254,7 @@ module.exports = {
         },
         {
           on: "*",
-          to: "srf_id",
+          to: "collect_personal_details",
         },
       ],
     },
@@ -284,24 +316,6 @@ module.exports = {
       validation: "^\\d{6}$|^Not yet assigned$",
       persist_slot: true,
       fallback: "Please enter the 6-digit BU number: [[{cache.bu_number}][Not yet assigned]]",
-      transitions: [
-        {
-          on: "*",
-          to: "srf_id",
-        },
-      ],
-    },
-    {
-      name: "srf_id",
-      action: {
-        type: "send_message",
-        text: "What is the 13-digit COVID test SRF ID? [[{cache.srf_id}]]",
-      },
-      slots: {
-        message_text: "srf_id",
-      },
-      validation: "^\\d{13}$",
-      fallback: "Please enter the 13-digit COVID test SRF ID. [[{cache.srf_id}]]",
       transitions: [
         {
           on: "*",
@@ -466,7 +480,7 @@ module.exports = {
       name: "registered_1912_108",
       action: {
         type: "send_message",
-        text: "Have your registered with 1912 / 108? [[Yes, No]]",
+        text: "Have you registered with 1912 / 108? [[Yes, No]]",
       },
       slots: {
         message_text: "registered_1912_108",
@@ -500,7 +514,7 @@ module.exports = {
         },
         {
           on: "No",
-          to: "new_request",
+          to: "request_type",
         },
       ],
     },
@@ -510,91 +524,21 @@ module.exports = {
         {
           type: "call_function",
           method: "submitForm",
-          on_success: "wait_for_admin_response",
+          on_success: "sleep",
           on_failure: "submit_form_failure",
         },
       ],
     },
     {
-      name: "wait_for_admin_response",
-      transitions: [
-        {
-          on: "Cancel Request",
-          to: "cancel_request",
-        },
-        {
-          on: "*",
-          to: "append_form",
-        },
-      ],
-    },
-    {
       name: "submit_form_failure",
-      action: {
-        type: "send_message",
-        text: "Your request could not be recorded at this time. Would you like to try again? [[Yes][No]]",
-      },
-      fallback: "Please confirm with a Yes / No. [[Yes][No]]",
-      transitions: [
+      action: [
         {
-          on: "Yes",
-          to: "submit_form",
+          type: "send_message",
+          text: "Your request could not be recorded at this time. Please try again after some time.",
         },
         {
-          on: "No",
-          to: "sleep",
-        }
-      ],
-    },
-    {
-      name: "append_form",
-      action: {
-        type: "call_function",
-        method: "appendUserForm",
-        on_success: "wait_for_admin_response",
-        on_failure: "append_form_failure",
-      },
-    },
-    {
-      name: "append_form_failure",
-      action: {
-        type: "send_message",
-        text: "Your request could not be recorded. Please try sending your message again after some time. [[Cancel Request]]",
-      },
-      transitions: [
-        {
-          on: "Cancel Request",
-          to: "cancel_request",
-        },
-        {
-          on: "*",
-          to: "append_form",
-        },
-      ],
-    },
-    {
-      name: "cancel_request",
-      action: {
-        type: "call_function",
-        method: "cancelRequest",
-        on_success: "sleep",
-        on_failure: "cancel_request_failure",
-      },
-    },
-    {
-      name: "cancel_request_failure",
-      action: {
-        type: "send_message",
-        text: "Your cancellation request could not be processed. Please try again after some time. [[Cancel Request]]",
-      },
-      transitions: [
-        {
-          on: "Cancel Request",
-          to: "cancel_request",
-        },
-        {
-          on: "*",
-          to: "append_form",
+          type: "goto_state",
+          state: "request_type",
         },
       ],
     },
@@ -603,7 +547,7 @@ module.exports = {
       transitions: [
         {
           on: "*",
-          to: "new_request",
+          to: "request_type",
         },
       ],
     }
