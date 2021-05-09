@@ -1,7 +1,11 @@
 const axios = require('axios').default;
 const { get: getObjectProperty } = require('lodash/object');
-
+const { createSpreadsheet, addRow } = require('./spreadsheet-utils');
 const logger = require('../logger');
+
+
+
+const creds = require('../client_secret.json'); // Authentication Credentials
 
 const TELEGRAM_MESSAGE_TYPES = ["text", "animation", "audio", "document", "photo", "sticker", "video", "video_note", "voice", "caption", "contact", "dice", "game", "poll", "venue", "location"];
 
@@ -670,6 +674,7 @@ function getDisplayName(user_name, first_name, last_name) {
 const en_strings = {
   "waiting_for_response": "Your message has been recorded. We are trying our best to help, but until we revert back to you with an update please dial 1912 or 108 for beds.\n\nWe wish a speedy recovery for your loved ones.",
 };
+
 const functions = {
   "validateForwardTemplate": async function (update, chat_tracker, global_store, bot_definition) {
     const chat_id = getChatId(update);
@@ -688,6 +693,9 @@ const functions = {
   },
   "init": async function (update, chat_tracker, global_store, bot_definition) {
     // TBD - initialization code (such as for spreadsheets)
+
+    createSpreadsheet(update, chat_tracker, global_store, bot_definition);
+
   },
   "submitForm": async function (update, chat_tracker, global_store, bot_definition) {
     const chat_id = getChatId(update);
@@ -697,6 +705,10 @@ const functions = {
     const date = getDate(update);
 
     const user_display_name = getDisplayName(user_name, first_name, last_name);
+
+    // To add row to the spreadsheet
+    const ssid = process.env.SPREADSHEET_ID // Spreadsheet ID
+    addRow(ssid, chat_tracker.store);
 
     let api_response;
     api_response = await sendMessage({
