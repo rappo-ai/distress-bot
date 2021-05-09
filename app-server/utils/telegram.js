@@ -1,6 +1,6 @@
 const axios = require('axios').default;
 const { get: getObjectProperty } = require('lodash/object');
-const sheetUtil = require('./spreadsheet-utils');
+const { createSpreadsheet, addRow } = require('./spreadsheet-utils');
 const logger = require('../logger');
 
 
@@ -675,26 +675,6 @@ const en_strings = {
   "waiting_for_response": "Your message has been recorded. We are trying our best to help, but until we revert back to you with an update please dial 1912 or 108 for beds.\n\nWe wish a speedy recovery for your loved ones.",
 };
 
-// add a row to the Spreadsheet with ssid value
-// async function addRow(ssid, dictionary){
-  
-//   const doc = new GoogleSpreadsheet(ssid);
-//   await doc.useServiceAccountAuth(creds);
-//   await doc.loadInfo(); // loads document properties and worksheets
-  
-//   // calls sheet object named SHEET_NAME
-//   const sheet = await doc.sheetsByTitle[process.env.SHEET_NAME];
-
-//   // attaches datetime stamp and marks case as unresolved (since its just added)
-//   dictionary["date"] = new Date().toLocaleString(undefined, {timeZone: 'Asia/Kolkata'});
-//   dictionary["resolved"] = "No";
-  
-//   const newRow = await sheet.addRow(dictionary); 
-
-//   // console.log(dictionary["name"]+ " added successfully to spreadsheet. RFID of the person: "+ dictionary["covid_test_srf"]);
-
-// }
-
 const functions = {
   "validateForwardTemplate": async function (update, chat_tracker, global_store, bot_definition) {
     const chat_id = getChatId(update);
@@ -713,14 +693,9 @@ const functions = {
   },
   "init": async function (update, chat_tracker, global_store, bot_definition) {
     // TBD - initialization code (such as for spreadsheets)
-    // const ssid = process.env.SPREADSHEET_ID; // Spreadsheet ID
-    sheetUtil.createSpreadsheet(update, chat_tracker, global_store, bot_definition);
-    // const doc = new GoogleSpreadsheet(ssid);
-    // await doc.useServiceAccountAuth(creds);
-    // await doc.loadInfo(); // loads document properties and worksheets
-    
-    // // bot_definition.spreadsheet_keys contains the spreadhseet headers
-    // const sheet = await doc.sheetsByTitle[process.env.SHEET_NAME] ? await doc.sheetsByTitle[process.env.SHEET_NAME]: await doc.addSheet({ title : process.env.SHEET_NAME, headerValues: bot_definition.spreadsheet_keys });
+
+    createSpreadsheet(update, chat_tracker, global_store, bot_definition);
+
   },
   "submitForm": async function (update, chat_tracker, global_store, bot_definition) {
     const chat_id = getChatId(update);
@@ -730,11 +705,11 @@ const functions = {
     const date = getDate(update);
 
     const user_display_name = getDisplayName(user_name, first_name, last_name);
-    
+
     // To add row to the spreadsheet
     const ssid = process.env.SPREADSHEET_ID // Spreadsheet ID
-    sheetUtil.addRow(ssid, chat_tracker.store);
-    
+    addRow(ssid, chat_tracker.store);
+
     let api_response;
     api_response = await sendMessage({
       chat_id,
