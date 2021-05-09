@@ -2,8 +2,10 @@ const queue = require('async/queue');
 const { get: getObjectProperty, has: hasObjectProperty } = require('lodash/object');
 
 const bot_definition = require("./bot-definition");
+bot_definition.functions = require('./bot-functions');
+const { processPMUpdate, processGroupUpdate, getTrackerForChat, getGlobalStore, callFunction } = require('./bot-engine');
 const logger = require('../../logger');
-const { TELEGRAM_MESSAGE_TYPES, sendMessage, leaveChat, processPMUpdate, processGroupUpdate, getTrackerForChat, getGlobalStore, getChatId, callFunction } = require('../../utils/telegram');
+const { TELEGRAM_MESSAGE_TYPES, sendMessage, leaveChat, getChatId } = require('../../utils/telegram');
 
 const bots = {};
 const isInit = false;
