@@ -752,7 +752,7 @@ async function updateAdminThread(request_id, raw_message, sent_by, replied_by, d
     });
     new_admin_thread_message_text = new_message_lines.join("\n");
   } else {
-    new_admin_thread_message_text = `${status_text}\n\nSent by ${sent_by} on ${formatDate(date)}\n\nPatient Name: ${patient_name}\nSRF ID: ${srf_id}\n\n${raw_message}\n\nReply to this message to send a message to user in PM.\n\n${request_id}`;
+    new_admin_thread_message_text = `${status_text}\n\nSent by ${sent_by} on ${formatDate(date)}${patient_name && `\nPatient Name: ${patient_name}`}${srf_id && `\nSRF ID: ${srf_id}`}\n\n${raw_message}\n\nReply to this message to send a message to user in PM.\n\n${request_id}`;
   }
 
   // send new message
@@ -783,8 +783,7 @@ async function updateUserThread(request_id, chat_id, reply_to_message_id, raw_me
   const status = getObjectProperty(global_store, `requests.${request_id}.status`, "open");
   const active_chats = getObjectProperty(global_store, `requests.${request_id}.active_chats`);
   const is_user_request_open = (status === "open") && active_chats.includes(chat_id);
-  const message_text = `Patient Name: ${patient_name}
-SRF ID: ${srf_id}
+  const message_text = `${patient_name && `Patient Name: ${patient_name}`}${srf_id && `\nSRF ID: ${srf_id}`}
 
 ${raw_message}${is_user_request_open ? "\n\nReply to this message to send any extra info for this request." : ""}
 
@@ -799,32 +798,24 @@ ${request_id}`;
 }
 
 const functions = {
-  "validateForwardTemplate": async function (update, chat_tracker, global_store, bot_definition) {
-    const chat_id = getChatId(update);
-    const message_text = getMessageText(update);
-    const slots_to_validate = ["name", "age", "address", "spo2", "mobile_number", "srf_id", "registered_1912_108"];
-    const is_valid_template = false;
-    // tbd  - validate the above slots and store the result in is_valid_template
-    if (!is_valid_template) {
-      await sendMessage({
-        chat_id,
-        text: `The template is invalid. We need the following mandatory fields: \n\n${slots_to_validate.join('\n')}\n\nPlease send the template again.`,
-        reply_markup: { inline_keyboard: getInlineKeyboard("[[Cancel]]") },
-      }, process.env.TELEGRAM_BOT_TOKEN);
-      return "forward_template_retry";
-    }
-    return "summary";
-  },
   "init": async function (update, chat_tracker, global_store, bot_definition) {
     // createSpreadsheet(update, chat_tracker, global_store, bot_definition);
   },
   "submitForm": async function (update, chat_tracker, global_store, bot_definition) {
     const srf_id = chat_tracker.store["srf_id"];
+    const has_forward_message = !!chat_tracker.store["forward_message"];
     let request_id = getRequestIdForSrfId(srf_id, global_store);
-
     if (!request_id) {
       // tbd - initialize from DB / spreadsheet
       request_id = createRequestId(chat_tracker.store, global_store);
+    } else {
+      if (has_forward_message) {
+        setObjectProperty(global_store, `requests.${request_id}.data.forward_message`, chat_tracker.store.forward_message);
+      } else {
+        const previous_forward_message = getObjectProperty(global_store, `requests.${request_id}.data.forward_message`);
+        setObjectProperty(global_store, `requests.${request_id}.data`, Object.assign({}, chat_tracker.store));
+        setObjectProperty(global_store, `requests.${request_id}.data.forward_message`, previous_forward_message);
+      }
     }
 
     const chat_id = getChatId(update);
@@ -842,25 +833,25 @@ const functions = {
     active_chats.push(...getObjectProperty(global_store, `requests.${request_id}.active_chats`));
     setObjectProperty(global_store, `requests.${request_id}.active_chats`, active_chats);
 
-    let admin_thread_update_text = `Requirement - { requirement }
-SPO2 level - { spo2 }
-Bed type - { bed_type }
-Needs cylinder - { needs_cylinder }
-Covid test done ? - { covid_test_done }
-Covid test result - { covid_test_result }
-CT scan done ? - { ct_scan_done }
-CT score - { ct_score }
-BU number - { bu_number }
-SRF ID - { srf_id }
-Name - { name }
-Age - { age }
-Gender - { gender }
-Blood group - { blood_group }
-Mobile number - { mobile_number }
-Alt mobile number - { alt_mobile_number }
-Address - { address }
-Hospital preference - { hospital_preference }
-Registered with 1912 / 108 - { registered_1912_108 }`;
+    let admin_thread_update_text = has_forward_message ? `{forward_message}` : `Requirement: { requirement }
+SPO2 level: { spo2 }
+Bed type: { bed_type }
+Needs cylinder: { needs_cylinder }
+Covid test done ?: { covid_test_done }
+Covid test result: { covid_test_result }
+CT scan done ?: { ct_scan_done }
+CT score: { ct_score }
+BU number: { bu_number }
+SRF ID: { srf_id }
+Name: { name }
+Age: { age }
+Gender: { gender }
+Blood group: { blood_group }
+Mobile number: { mobile_number }
+Alt mobile number: { alt_mobile_number }
+Address: { address }
+Hospital preference: { hospital_preference }
+Registered with 1912 / 108: { registered_1912_108 }`;
 
     admin_thread_update_text = replaceSlots(admin_thread_update_text, chat_tracker.store, "N/A");
     const admin_reply_markup = { inline_keyboard: getInlineKeyboard("[[Close Request]]") };
@@ -1055,6 +1046,29 @@ Registered with 1912 / 108 - { registered_1912_108 }`;
     return (covid_test_done && covid_test_done === "Yes") ? "bu_number" : "collect_personal_details";
   },
 
+  "validateForwardTemplate": async function (update, chat_tracker, global_store, bot_definition) {
+    const chat_id = getChatId(update);
+    const message_text = getMessageText(update);
+    const slots_to_validate = ["name", "age", "address", "spo2", "mobile_number", "srf_id", "registered_1912_108"];
+    let srf_id;
+    const srf_id_match = message_text.match(/\d{13}/);
+    if (srf_id_match) {
+      srf_id = srf_id_match[0];
+    }
+    const is_valid_template = !!srf_id;
+    // tbd  - validate the above slots and add the result in is_valid_template
+    if (!is_valid_template) {
+      await sendMessage({
+        chat_id,
+        text: `The template is invalid. Please make sure your request has a 13-digit SRF ID and send the template again.`,
+        reply_markup: { inline_keyboard: getInlineKeyboard("[[Cancel]]") },
+      }, process.env.TELEGRAM_BOT_TOKEN);
+      return "forward_template_retry";
+    }
+    chat_tracker.store["srf_id"] = chat_tracker.store["cache"]["srf_id"] = srf_id;
+    return "check_duplicate_forward_srf_id";
+  },
+
   "checkDuplicateSrfId": async function (update, chat_tracker, global_store, bot_definition) {
     const srf_id = chat_tracker.store["srf_id"];
     if (srf_id.search(/^\d{13}$/) === -1) {
@@ -1066,10 +1080,54 @@ Registered with 1912 / 108 - { registered_1912_108 }`;
       return "requirement";
     }
 
-    chat_tracker.store = Object.assign({}, getObjectProperty(global_store, `requests.${request_id}.data`));
-    chat_tracker.store["cache"] = Object.assign({}, getObjectProperty(global_store, `requests.${request_id}.data`));
+    return "confirm_duplicate_update";
+  },
+
+  "checkDuplicateForwardSrfId": async function (update, chat_tracker, global_store, bot_definition) {
+    const srf_id = chat_tracker.store["srf_id"];
+    const request_id = getRequestIdForSrfId(srf_id, global_store);
+    if (!request_id) {
+      return "forward_summary";
+    }
 
     return "confirm_duplicate_update";
+  },
+
+  "confirmDuplicateUpdate": async function (update, chat_tracker, global_store, bot_definition) {
+    const srf_id = chat_tracker.store["srf_id"];
+    const request_id = getRequestIdForSrfId(srf_id, global_store);
+    const patient_name = getObjectProperty(global_store, `requests.${request_id}.data.name`, "");
+    const forward_message = getObjectProperty(global_store, `requests.${request_id}.data.forward_message`, "");
+    const message_raw_text = "A request for this SRF ID already exists with the following details:" +
+      (patient_name && "\n\nRequirement: {requirement}\nSPO2 level: {spo2}\nBed type: {bed_type}\nNeeds cylinder: {needs_cylinder}\nCovid test result: {covid_test_result}\nCT Scan done?: {ct_scan_done}\nCT Score: {ct_score}\nBU number: {bu_number}\nSRF ID: {srf_id}\nName: {name}\nAge: {age}\nGender: {gender}\nBlood group: {blood_group}\nMobile number: {mobile_number}\nAlt mobile number: {alt_mobile_number}\nAddress: {address}\nHospital preference: {hospital_preference}\nRegistered with 1912 / 108: {registered_1912_108}") +
+      (forward_message && "\n\n{forward_message}") +
+      "\n\nDo you want to update this request? [[Yes, No]]";
+    const slots_store = getObjectProperty(global_store, `requests.${request_id}.data`, {});
+    const reply_markup = { inline_keyboard: getInlineKeyboard(message_raw_text, chat_tracker.store) };
+    let message_text = removeReplyMarkup(message_raw_text);
+    message_text = replaceSlots(message_text, slots_store, "N/A");
+
+    const chat_id = getChatId(update);
+    await sendMessage({
+      chat_id,
+      text: message_text,
+      reply_markup,
+    }, process.env.TELEGRAM_BOT_TOKEN);
+
+    return "confirm_duplicate_update_wait";
+  },
+
+  "updateDuplicate": async function (update, chat_tracker, global_store, bot_definition) {
+    const is_forward_update = !!chat_tracker.store["forward_message"];
+    if (!is_forward_update) {
+      const srf_id = chat_tracker.store["srf_id"];
+      const request_id = getRequestIdForSrfId(srf_id, global_store);
+      chat_tracker.store = Object.assign({}, getObjectProperty(global_store, `requests.${request_id}.data`));
+      chat_tracker.store["cache"] = Object.assign({}, getObjectProperty(global_store, `requests.${request_id}.data`));
+      chat_tracker.store.forward_message = chat_tracker.store["cache"].forward_message = "";
+    }
+
+    return is_forward_update ? "forward_summary" : "requirement";
   },
 
   "checkSpo2": async function (update, chat_tracker, global_store, bot_definition) {
@@ -1168,7 +1226,6 @@ function addMessageSlotsToStore(slots, chat_store, message_text, message_id) {
     }
   }
 }
-
 async function callFunction(action, update, chat_tracker, global_store, bot_definition) {
   let next_state_name;
   if (functions[action.method]) {
@@ -1213,7 +1270,8 @@ async function doBotAction(action, chat_tracker, global_store, update, functions
         next_state_name = action.state;
         break;
       case "restart":
-        Object.keys(chat_tracker.store).forEach(key => delete chat_tracker.store[key]);
+        Object.keys(chat_tracker.store.cache).forEach(key => delete chat_tracker.store.cache[key]);
+        Object.keys(chat_tracker.store).forEach(key => key !== "cache" && delete chat_tracker.store[key]);
         next_state_name = bot_definition.start_state;
         break;
       default:

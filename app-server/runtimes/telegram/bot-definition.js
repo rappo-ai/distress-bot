@@ -3,7 +3,7 @@ module.exports = {
   default_fallback: "Please read the instructions and respond as asked.",
   command_fallback: "This is not a valid command",
   debug_channel_chat_id: process.env.TELEGRAM_DEBUG_CHANNEL_CHAT_ID,
-  spreadsheet_keys: ["date", "requirement", "spo2", "bed_type", "needs_cylinder", "covid_test_done", "covid_test_result", "ct_scan_done", "ct_score", "bu_number", "covid_test_srf", "name", "age", "gender", "blood_group", "mobile_number", "alt_mobile_number", "address", "hospital_preference", "resolved"],
+  spreadsheet_keys: ["date", "requirement", "spo2", "bed_type", "needs_cylinder", "covid_test_result", "ct_scan_done", "ct_score", "bu_number", "covid_test_srf", "name", "age", "gender", "blood_group", "mobile_number", "alt_mobile_number", "address", "hospital_preference", "resolved"],
   commands: [
     {
       trigger: "/start",
@@ -63,6 +63,9 @@ module.exports = {
           text: "Please send us the request in the following format:\n\n1. Patient Name : \n2. Age : \n3. Area / Location : \n4. Symptoms : \n5. Since how many days : \n6. SPO2 Level : \n7. Is patient on Oxygen Cylinder ? : \n8. Searching Hospital Bed Since ? : \n9. List of Hospitals Visited : \n10. Covid Test Done ? : \n11. Covid Result (+ve/-ve/Awaiting) : \n12. Prefer Govt/Pvt/Any Hospital ? \n13. Attender name & Mobile No : \n14. Relation to the Patient : \n15. SRF ID : \n16. BU number : \n17. Bed type ?: \n18. Registered with 1912/108 :[[Cancel]]",
         },
       ],
+      slots: {
+        message_text: "forward_message",
+      },
       transitions: [
         {
           on: "Cancel",
@@ -124,23 +127,40 @@ module.exports = {
       },
     },
     {
+      name: "check_duplicate_forward_srf_id",
+      action: {
+        type: "call_function",
+        method: "checkDuplicateForwardSrfId",
+      },
+    },
+    {
       name: "confirm_duplicate_update",
       action: {
-        type: "send_message",
-        text: "A request for this SRF ID already exists with the following details:\n\nRequirement - {requirement}\nSPO2 level - {spo2}\nBed type - {bed_type}\nNeeds cylinder - {needs_cylinder}\nCovid test done? - {covid_test_done}\nCovid test result - {covid_test_result}\nCT Scan done? - {ct_scan_done}\nCT Score - {ct_score}\nBU number - {bu_number}\nSRF ID - {srf_id}\nName - {name}\nAge - {age}\nGender - {gender}\nBlood group - {blood_group}\nMobile number - {mobile_number}\nAlt mobile number - {alt_mobile_number}\nAddress - {address}\nHospital preference - {hospital_preference}\nRegistered with 1912 / 108 - {registered_1912_108}\n\nDo you want to update this request? [[Yes, No]]"
+        type: "call_function",
+        method: "confirmDuplicateUpdate"
       },
+    },
+    {
+      name: "confirm_duplicate_update_wait",
       validation: "^Yes$|^No$",
       fallback: "Please confirm with a Yes / No. [[Yes, No]]",
       transitions: [
         {
           on: "Yes",
-          to: "requirement",
+          to: "update_duplicate",
         },
         {
           on: "No",
           to: "sleep",
         },
       ]
+    },
+    {
+      name: "update_duplicate",
+      action: {
+        type: "call_function",
+        method: "updateDuplicate",
+      },
     },
     {
       name: "requirement",
@@ -499,7 +519,31 @@ module.exports = {
       action: [
         {
           type: "send_message",
-          text: "Summary of your request:\n\nRequirement - {requirement}\nSPO2 level - {spo2}\nBed type - {bed_type}\nNeeds cylinder - {needs_cylinder}\nCovid test done? - {covid_test_done}\nCovid test result - {covid_test_result}\nCT Scan done? - {ct_scan_done}\nCT Score - {ct_score}\nBU number - {bu_number}\nSRF ID - {srf_id}\nName - {name}\nAge - {age}\nGender - {gender}\nBlood group - {blood_group}\nMobile number - {mobile_number}\nAlt mobile number - {alt_mobile_number}\nAddress - {address}\nHospital preference - {hospital_preference}\nRegistered with 1912 / 108 - {registered_1912_108}",
+          text: "Summary of your request:\n\nRequirement: {requirement}\nSPO2 level: {spo2}\nBed type: {bed_type}\nNeeds cylinder: {needs_cylinder}\nCovid test result: {covid_test_result}\nCT Scan done?: {ct_scan_done}\nCT Score: {ct_score}\nBU number: {bu_number}\nSRF ID: {srf_id}\nName: {name}\nAge: {age}\nGender: {gender}\nBlood group: {blood_group}\nMobile number: {mobile_number}\nAlt mobile number: {alt_mobile_number}\nAddress: {address}\nHospital preference: {hospital_preference}\nRegistered with 1912 / 108: {registered_1912_108}",
+        },
+        {
+          type: "send_message",
+          text: "Is this correct? [[Yes][No]]"
+        },
+      ],
+      fallback: "Please confirm with a Yes / No. [[Yes][No]]",
+      transitions: [
+        {
+          on: "Yes",
+          to: "submit_form",
+        },
+        {
+          on: "No",
+          to: "request_type",
+        },
+      ],
+    },
+    {
+      name: "forward_summary",
+      action: [
+        {
+          type: "send_message",
+          text: "Summary of your request:\n\n{forward_message}",
         },
         {
           type: "send_message",
