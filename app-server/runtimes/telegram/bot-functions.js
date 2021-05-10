@@ -19,9 +19,13 @@ function getDisplayName(user_name, first_name, last_name) {
 
 async function createRequestId(data, global_store) {
   const request_id = nanoid();
+  const request_data = Object.assign({}, data);
+  if (request_data["cache"]) {
+    delete request_data["cache"];
+  }
   global_store["requests"][request_id] = {
     request_id,
-    data: Object.assign({}, data),
+    data: request_data,
     status: "open",
     active_chats: [],
     admin_thread_message_id: "",
@@ -108,9 +112,9 @@ async function updateAdminThread(request_id, raw_message, sent_by, replied_by, d
   await updateRow(process.env.SPREADSHEET_ID, { key: "request_id", value: request_id }, {
     status,
     last_update_time: formatDate(Date.now()),
-    admin_thread_message_id,
-    admin_thread_message_text,
-    active_chats: active_chats.join(),
+    admin_thread_message_id: api_response.data.result.message_id,
+    admin_thread_message_text: new_admin_thread_message_text,
+    active_chats: active_chats.join(', '),
   });
 }
 
@@ -166,8 +170,10 @@ const functions = {
     const date = getDateMs(update);
     const user_display_name = getDisplayName(user_name, first_name, last_name);
 
-    const active_chats = [chat_id];
-    active_chats.push(...getObjectProperty(global_store, `requests.${request_id}.active_chats`));
+    const active_chats = getObjectProperty(global_store, `requests.${request_id}.active_chats`, []);
+    if (!active_chats.includes(chat_id)) {
+      active_chats.push(chat_id);
+    }
     setObjectProperty(global_store, `requests.${request_id}.active_chats`, active_chats);
 
     let admin_thread_update_text = has_forward_message ? `{ forward_message }` : `Requirement: { requirement }
