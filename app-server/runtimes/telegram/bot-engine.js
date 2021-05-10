@@ -136,7 +136,7 @@ async function doBotAction(action, chat_tracker, global_store, update, bot_defin
       case "send_message":
         const reply_markup = { inline_keyboard: getInlineKeyboard(action.text, chat_tracker.store) };
         let text = removeReplyMarkup(action.text);
-        text = replaceSlots(text, chat_tracker.store, "");
+        text = replaceSlots(text, chat_tracker.store, action.default_slot_value || "");
         api_response = await sendMessage({ chat_id, text, reply_markup }, process.env.TELEGRAM_BOT_TOKEN);
         addMessageSlotsToStore(action.slots, chat_tracker.store, api_response.data.result.text, api_response.data.result.message_id);
         chat_tracker.last_message_sent = api_response.data.result;
