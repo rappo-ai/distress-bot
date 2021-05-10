@@ -5,7 +5,7 @@ const { doBotAction, getInlineKeyboard, getTrackerForChat, removeReplyMarkup, re
 
 const logger = require('../../logger');
 const { formatDate } = require('../../utils/date');
-const { createSpreadsheet, addRow } = require('../../utils/google-sheets');
+const { addRow, createSpreadsheet, updateRow } = require('../../utils/google-sheets');
 const { deleteMessage, getCallbackData, getCallbackMessageId, getCallbackMessageText, getChatId, getDateMs, getFirstName, getLastName, getMessageId, getMessageText, getReplyToMessageText, getUserName, sendMessage } = require('../../utils/telegram');
 
 // tbd - move all strings into this dictionary
@@ -17,18 +17,27 @@ function getDisplayName(user_name, first_name, last_name) {
   return `${user_name ? `@${user_name}` : (first_name || "") + first_name && " " + (last_name || "")}`;
 }
 
-function createRequestId(data, global_store) {
+async function createRequestId(data, global_store) {
   const request_id = nanoid();
   global_store["requests"][request_id] = {
     request_id,
     data: Object.assign({}, data),
     status: "open",
     active_chats: [],
+    admin_thread_message_id: "",
+    admin_thread_message_text: "",
   };
+
+  const sheet_data = Object.assign({}, data);
+  sheet_data["request_id"] = request_id;
+  sheet_data["creation_time"] = formatDate(Date.now());
+  await addRow(process.env.SPREADSHEET_ID, sheet_data);
+
   return request_id;
 }
 
 function getRequestIdForSrfId(srf_id, global_store) {
+  // tbd - read from DB / spreadsheet
   return srf_id && Object.keys(global_store["requests"]).find(key => getObjectProperty(global_store, `requests.${key}.data.srf_id`) === srf_id);
 }
 
@@ -36,8 +45,8 @@ async function updateAdminThread(request_id, raw_message, sent_by, replied_by, d
   const patient_name = getObjectProperty(global_store, `requests.${request_id}.data.name`, "");
   const srf_id = getObjectProperty(global_store, `requests.${request_id}.data.srf_id`, "");
   const status = getObjectProperty(global_store, `requests.${request_id}.status`, "open");
-  const admin_thread_message_id = getObjectProperty(global_store, `requests.${request_id}.admin_thread_message_id`);
-  let admin_thread_message_text = getObjectProperty(global_store, `requests.${request_id}.admin_thread_message_text`);
+  const admin_thread_message_id = getObjectProperty(global_store, `requests.${request_id}.admin_thread_message_id`, "");
+  let admin_thread_message_text = getObjectProperty(global_store, `requests.${request_id}.admin_thread_message_text`, "");
 
   let status_text;
   switch (status) {
@@ -97,6 +106,15 @@ async function updateAdminThread(request_id, raw_message, sent_by, replied_by, d
       message_id: admin_thread_message_id,
     }, process.env.TELEGRAM_BOT_TOKEN);
   }
+
+  const active_chats = getObjectProperty(global_store, `requests.${request_id}.active_chats`, []);
+  await updateRow(process.env.SPREADSHEET_ID, { key: "request_id", value: request_id }, {
+    status,
+    last_update_time: formatDate(Date.now()),
+    admin_thread_message_id,
+    admin_thread_message_text,
+    active_chats: active_chats.join(),
+  });
 }
 
 async function updateUserThread(request_id, chat_id, reply_to_message_id, raw_message, reply_markup, global_store) {
@@ -121,15 +139,14 @@ ${request_id}`;
 
 const functions = {
   "init": async function (update, chat_tracker, global_store, bot_definition) {
-    // createSpreadsheet(update, chat_tracker, global_store, bot_definition);
+    await createSpreadsheet(process.env.SPREADSHEET_ID, bot_definition.spreadsheet_headers);
   },
   "submitForm": async function (update, chat_tracker, global_store, bot_definition) {
     const srf_id = chat_tracker.store["srf_id"];
     const has_forward_message = !!chat_tracker.store["forward_message"];
     let request_id = getRequestIdForSrfId(srf_id, global_store);
     if (!request_id) {
-      // tbd - initialize from DB / spreadsheet
-      request_id = createRequestId(chat_tracker.store, global_store);
+      request_id = await createRequestId(chat_tracker.store, global_store);
     } else {
       setObjectProperty(global_store, `requests.${request_id}.status`, "open");
       if (has_forward_message) {
@@ -139,6 +156,10 @@ const functions = {
         setObjectProperty(global_store, `requests.${request_id}.data`, Object.assign({}, chat_tracker.store));
         setObjectProperty(global_store, `requests.${request_id}.data.forward_message`, previous_forward_message);
       }
+      await updateRow(process.env.SPREADSHEET_ID, { key: "request_id", value: request_id }, {
+        last_update_time: formatDate(Date.now()),
+        ...getObjectProperty(global_store, `requests.${request_id}.data`, {}),
+      });
     }
 
     const chat_id = getChatId(update);
@@ -148,15 +169,11 @@ const functions = {
     const date = getDateMs(update);
     const user_display_name = getDisplayName(user_name, first_name, last_name);
 
-    // To add row to the spreadsheet
-    // const ssid = process.env.SPREADSHEET_ID // Spreadsheet ID
-    // addRow(ssid, chat_tracker.store);
-
     const active_chats = [chat_id];
     active_chats.push(...getObjectProperty(global_store, `requests.${request_id}.active_chats`));
     setObjectProperty(global_store, `requests.${request_id}.active_chats`, active_chats);
 
-    let admin_thread_update_text = has_forward_message ? `{forward_message}` : `Requirement: { requirement }
+    let admin_thread_update_text = has_forward_message ? `{ forward_message }` : `Requirement: { requirement }
 SPO2 level: { spo2 }
 Bed type: { bed_type }
 Needs cylinder: { needs_cylinder }
@@ -174,7 +191,7 @@ Mobile number: { mobile_number }
 Alt mobile number: { alt_mobile_number }
 Address: { address }
 Hospital preference: { hospital_preference }
-Registered with 1912 / 108: { registered_1912_108 }`;
+Registered with 1912 / 108: { registered_1912_108 } `;
 
     admin_thread_update_text = replaceSlots(admin_thread_update_text, chat_tracker.store, "N/A");
     const admin_reply_markup = { inline_keyboard: getInlineKeyboard("[[Close Request]]") };
@@ -270,7 +287,7 @@ Registered with 1912 / 108: { registered_1912_108 }`;
     const active_chats = getObjectProperty(global_store, `requests.${request_id}.active_chats`);
     if (!active_chats || !active_chats.length) {
       const admin_reply_markup = { inline_keyboard: [] };
-      await updateAdminThread(request_id, `This request has been closed. The below message has been ignored:\n\n${admin_thread_update_text}`, "", admin_display_name, date, admin_reply_markup, global_store);
+      await updateAdminThread(request_id, `This request has been closed.The below message has been ignored: \n\n${admin_thread_update_text} `, "", admin_display_name, date, admin_reply_markup, global_store);
       return;
     }
 
@@ -383,7 +400,7 @@ Registered with 1912 / 108: { registered_1912_108 }`;
     if (!is_valid_template) {
       await sendMessage({
         chat_id,
-        text: `The template is invalid. Please make sure your request has a 13-digit SRF ID and send the template again.`,
+        text: `The template is invalid.Please make sure your request has a 13 - digit SRF ID and send the template again.`,
         reply_markup: { inline_keyboard: getInlineKeyboard("[[Cancel]]") },
       }, process.env.TELEGRAM_BOT_TOKEN);
       return "forward_template_retry";
