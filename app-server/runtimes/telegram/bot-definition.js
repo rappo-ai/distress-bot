@@ -110,10 +110,6 @@ module.exports = {
       fallback: "You need to enter the 13-digit SRF ID or click one of the options below: [[{cache.srf_id}][RTPCR test not done]]",
       transitions: [
         {
-          on: "RTPCR test not done",
-          to: "requirement",
-        },
-        {
           on: "*",
           to: "check_duplicate_srf_id",
         },
@@ -376,7 +372,7 @@ module.exports = {
       name: "age",
       action: {
         type: "send_message",
-        text: "What is the age of the patient? Please enter a number between 1 and 120. [[{cache.age}]]",
+        text: "What is the age of the patient? [[{cache.age}]]",
       },
       slots: {
         message_text: "age",
@@ -520,6 +516,7 @@ module.exports = {
         {
           type: "send_message",
           text: "Summary of your request:\n\nRequirement: {requirement}\nSPO2 level: {spo2}\nBed type: {bed_type}\nNeeds cylinder: {needs_cylinder}\nCovid test result: {covid_test_result}\nCT Scan done?: {ct_scan_done}\nCT Score: {ct_score}\nBU number: {bu_number}\nSRF ID: {srf_id}\nName: {name}\nAge: {age}\nGender: {gender}\nBlood group: {blood_group}\nMobile number: {mobile_number}\nAlt mobile number: {alt_mobile_number}\nAddress: {address}\nHospital preference: {hospital_preference}\nRegistered with 1912 / 108: {registered_1912_108}",
+          default_slot_value: "N/A",
         },
         {
           type: "send_message",
