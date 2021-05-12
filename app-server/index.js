@@ -19,6 +19,10 @@ const ngrok =
     ? require('ngrok')
     : false;
 
+const mongoose = require('mongoose');
+mongoose.connect('mongodb://localhost:27017/trackerDB', {useNewUrlParser: true, useUnifiedTopology: true});
+ 
+
 const app = express();
 
 // Use application-level middleware for common functionality, including

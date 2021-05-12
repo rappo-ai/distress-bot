@@ -1,8 +1,6 @@
 const fs = require('fs').promises;
 const { GoogleSpreadsheet } = require('google-spreadsheet');
-
 const logger = require('../logger');
-
 const sheetCache = {};
 
 async function createSpreadsheet(ssid, headers) {
