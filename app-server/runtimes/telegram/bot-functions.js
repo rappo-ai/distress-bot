@@ -84,9 +84,6 @@ async function updateAdminThread(request_id, raw_message, sent_by, replied_by, d
 
   let status_text;
   switch (status) {
-    case "cancelled":
-      status_text = "STATUS: CANCELLED";
-      break;
     case "closed":
       status_text = "STATUS: CLOSED";
       break;
@@ -280,7 +277,7 @@ Registered with 1912 / 108: { registered_1912_108 } `;
     const active_chats = getObjectProperty(global_store, `requests.${request_id}.active_chats`);
     if (!active_chats.includes(chat_id)) {
       const user_reply_markup = { inline_keyboard: [] };
-      await updateUserThread(request_id, chat_id, getMessageId(update), "This request has been cancelled by you. Please create a new request with same SRF ID to update the old case.", user_reply_markup, global_store);
+      await updateUserThread(request_id, chat_id, getMessageId(update), "This request is closed. Submit a new request with same SRF ID to re-open the request.", user_reply_markup, global_store);
       return;
     }
 
@@ -306,15 +303,26 @@ Registered with 1912 / 108: { registered_1912_108 } `;
     }
 
     const chat_id = getChatId(update);
-    let is_request_cancelled = false;
-    let active_chats = getObjectProperty(global_store, `requests.${request_id}.active_chats`);
-    active_chats = active_chats.filter(c => c !== chat_id);
-    if (!active_chats.length) {
-      is_request_cancelled = true;
+    const status = getObjectProperty(global_store, `requests.${request_id}.status`);
+    let active_chats = getObjectProperty(global_store, `requests.${request_id}.active_chats`, []);
+    const is_request_closed = status !== "open";
+    if (!active_chats.includes(chat_id) || is_request_closed) {
+      await updateUserThread(
+        request_id,
+        chat_id,
+        getCallbackMessageId(update),
+        "This request is closed. Submit a new request with same SRF ID to re-open the request.",
+        { inline_keyboard: [] },
+        global_store);
+      return;
     }
+
+    active_chats = active_chats.filter(c => c !== chat_id);
+    const is_request_cancelled = active_chats.length === 0;
+
     setObjectProperty(global_store, `requests.${request_id}.active_chats`, active_chats);
     if (is_request_cancelled) {
-      setObjectProperty(global_store, `requests.${request_id}.status`, "cancelled");
+      setObjectProperty(global_store, `requests.${request_id}.status`, "closed");
     }
 
     const admin_thread_update_text = "< User cancelled the request >";
@@ -354,7 +362,7 @@ Registered with 1912 / 108: { registered_1912_108 } `;
     const active_chats = getObjectProperty(global_store, `requests.${request_id}.active_chats`);
     if (!active_chats || !active_chats.length) {
       const admin_reply_markup = { inline_keyboard: [] };
-      await updateAdminThread(request_id, `This request has been closed.The below message has been ignored: \n\n${admin_thread_update_text} `, "", admin_display_name, date, admin_reply_markup, global_store);
+      await updateAdminThread(request_id, `This request is closed and the below message has been ignored: \n\n${admin_thread_update_text} `, "", admin_display_name, date, admin_reply_markup, global_store);
       return;
     }
 
@@ -477,7 +485,7 @@ Registered with 1912 / 108: { registered_1912_108 } `;
   },
 
   "checkDuplicateSrfId": async function (update, chat_tracker, global_store, bot_definition) {
-    const srf_id = chat_tracker.store["srf_id"];
+    let srf_id = chat_tracker.store["srf_id"];
     if (srf_id.search(/^\d{13}$/) === -1) {
       srf_id = chat_tracker.store["srf_id"] = chat_tracker.store["cache"]["srf_id"] = "";
       return "requirement";
