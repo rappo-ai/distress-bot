@@ -247,7 +247,7 @@ async function processPMUpdate(update, chat_tracker, global_store, bot_definitio
     logger.error(`processPMUpdate editMessageText ${err} `);
   }
 
-  const command_match = user_response.match(/(^\/[a-z]+)/);
+  const command_match = user_response.match(/(^\/\w+)/);
 
   if (isReplyToMessage(update)) {
     const reply_to_message_text = getReplyToMessageText(update);
