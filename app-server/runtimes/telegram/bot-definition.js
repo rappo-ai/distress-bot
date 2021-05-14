@@ -538,10 +538,10 @@ module.exports = {
         },
         {
           type: "send_message",
-          text: "Is this correct? [[Yes][No]]"
+          text: "Is this correct? [[Yes, No]]"
         },
       ],
-      fallback: "Please confirm with a Yes / No. [[Yes][No]]",
+      fallback: "Please confirm with a Yes / No. [[Yes, No]]",
       transitions: [
         {
           on: "Yes",
@@ -562,10 +562,10 @@ module.exports = {
         },
         {
           type: "send_message",
-          text: "Is this correct? [[Yes][No]]"
+          text: "Is this correct? [[Yes, No]]"
         },
       ],
-      fallback: "Please confirm with a Yes / No. [[Yes][No]]",
+      fallback: "Please confirm with a Yes / No. [[Yes, No]]",
       transitions: [
         {
           on: "Yes",
