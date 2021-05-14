@@ -25,7 +25,7 @@ module.exports = {
       action: [
         {
           type: "send_message",
-          text: "Hi! I am here to assist you with Covid requests for the state of Karnataka.\n\nThere are 2 ways I can help you. If you already have a message typed with all the details of the patient, you can simply forward that message using the Forward Template option. Else if you are creating a new request from scratch, use the New Request option and I will guide you with a series of around 20 questions to gather all the information we need.\n\nAt any point of time you can type /restart to restart the workflow.",
+          text: "Hi! I am here to assist you with Covid requests for the state of Karnataka.\n\nThere are 2 ways I can help you. If you already have a message typed with all the details of the patient, you can simply forward that message using the Forward Template option. Else if you are creating a new request from scratch, use the New Request option and I will guide you with a series of around 20 questions to gather all the information we need.\n\nAt any point of time you can type /restart to restart the workflow.\n\nThis bot was created by Rappo AI. Follow our channel @rappoai to discover our Telegram bots. Get in touch with us at @rappoaisupport.",
         },
         {
           type: "goto_state",
