@@ -23,10 +23,12 @@ async function createRequestId(data, global_store) {
   if (request_data["cache"]) {
     delete request_data["cache"];
   }
+  const creation_time = formatDate(Date.now());
   global_store["requests"][request_id] = {
     request_id,
-    data: request_data,
+    creation_time,
     status: "open",
+    data: request_data,
     active_chats: [],
     admin_thread_message_id: "",
     admin_thread_message_text: "",
@@ -35,6 +37,7 @@ async function createRequestId(data, global_store) {
   const sheet_data = Object.assign({}, data);
   sheet_data["request_id"] = request_id;
   sheet_data["creation_time"] = formatDate(Date.now());
+  sheet_data["status"] = "open";
   await addRow(process.env.SPREADSHEET_ID, sheet_data);
 
   return request_id;
@@ -102,7 +105,7 @@ async function updateAdminThread(request_id, raw_message, sent_by, replied_by, d
 
   if (admin_thread_message_id) {
     // delete previous message
-    api_response = await deleteMessage({
+    await deleteMessage({
       chat_id: process.env.TELEGRAM_ADMIN_GROUP_CHAT_ID,
       message_id: admin_thread_message_id,
     }, process.env.TELEGRAM_BOT_TOKEN);
@@ -140,7 +143,28 @@ ${request_id}`;
 
 const functions = {
   "init": async function (update, chat_tracker, global_store, bot_definition) {
-    await createSpreadsheet(process.env.SPREADSHEET_ID, bot_definition.spreadsheet_headers);
+    const rows = await createSpreadsheet(process.env.SPREADSHEET_ID, bot_definition.spreadsheet_headers);
+    let num_loaded_rows = 0;
+    rows.forEach(r => {
+      try {
+        const request_id = r["request_id"];
+        setObjectProperty(global_store, `requests.${request_id}.request_id`, r["request_id"]);
+        setObjectProperty(global_store, `requests.${request_id}.creation_time`, r["creation_time"]);
+        setObjectProperty(global_store, `requests.${request_id}.last_update_time`, r["last_update_time"]);
+        setObjectProperty(global_store, `requests.${request_id}.status`, r["status"]);
+        setObjectProperty(global_store, `requests.${request_id}.active_chats`, (r["active_chats"] || "").split(",").map(c => parseInt(c)).filter(c => c === c)); // last filter is to weed out NaN
+        setObjectProperty(global_store, `requests.${request_id}.admin_thread_message_id`, r["admin_thread_message_id"]);
+        setObjectProperty(global_store, `requests.${request_id}.admin_thread_message_text`, r["admin_thread_message_text"]);
+        setObjectProperty(global_store, `requests.${request_id}.data`, {});
+        bot_definition.spreadsheet_headers.filter(h => !["request_id", "creation_time", "last_update_time", "status", "active_chats", "admin_thread_message_id", "admin_thread_message_text"].includes(h)).forEach(h => {
+          setObjectProperty(global_store, `requests.${request_id}.data.${h}`, r[h]);
+        });
+        ++num_loaded_rows;
+      } catch (err) {
+        logger.warn(`init ${err}`);
+      }
+    });
+    logger.info(`Parsed ${rows.length} rows from spreadsheet; Successfully loaded ${num_loaded_rows} rows`);
   },
   "submitForm": async function (update, chat_tracker, global_store, bot_definition) {
     const srf_id = chat_tracker.store["srf_id"];
@@ -159,6 +183,7 @@ const functions = {
       }
       await updateRow(process.env.SPREADSHEET_ID, { key: "request_id", value: request_id }, {
         last_update_time: formatDate(Date.now()),
+        status: "open",
         ...getObjectProperty(global_store, `requests.${request_id}.data`, {}),
       });
     }
@@ -329,7 +354,7 @@ Registered with 1912 / 108: { registered_1912_108 } `;
         request_id,
         chat_id,
         undefined,
-        admin_thread_update_text,
+        `INCOMING MESSAGE:\n\n${admin_thread_update_text}`,
         user_reply_markup,
         global_store)
       );
