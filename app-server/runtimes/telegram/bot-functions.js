@@ -176,7 +176,8 @@ const functions = {
     }
     setObjectProperty(global_store, `requests.${request_id}.active_chats`, active_chats);
 
-    let admin_thread_update_text = has_forward_message ? `{ forward_message }` : `Requirement: { requirement }
+    let admin_thread_update_text = has_forward_message ? `{ forward_message }` : `Zone: { zone }
+Requirement: { requirement }
 SPO2 level: { spo2 }
 Bed type: { bed_type }
 Needs cylinder: { needs_cylinder }
@@ -414,7 +415,7 @@ Registered with 1912 / 108: { registered_1912_108 } `;
     if (!is_valid_template) {
       await sendMessage({
         chat_id,
-        text: `The template is invalid.Please make sure your request has a 13 - digit SRF ID and send the template again.`,
+        text: `The template is invalid. Please make sure your request has the mandatory 13-digit SRF ID and send the template again.`,
         reply_markup: { inline_keyboard: getInlineKeyboard("[[Cancel]]") },
       }, process.env.TELEGRAM_BOT_TOKEN);
       return "forward_template_retry";
@@ -427,11 +428,11 @@ Registered with 1912 / 108: { registered_1912_108 } `;
     let srf_id = chat_tracker.store["srf_id"];
     if (srf_id.search(/^\d{13}$/) === -1) {
       srf_id = chat_tracker.store["srf_id"] = chat_tracker.store["cache"]["srf_id"] = "";
-      return "requirement";
+      return "zone";
     }
     const request_id = getRequestIdForSrfId(srf_id, global_store);
     if (!request_id) {
-      return "requirement";
+      return "zone";
     }
 
     return "confirm_duplicate_update";
@@ -453,7 +454,7 @@ Registered with 1912 / 108: { registered_1912_108 } `;
     const patient_name = getObjectProperty(global_store, `requests.${request_id}.data.name`, "");
     const forward_message = getObjectProperty(global_store, `requests.${request_id}.data.forward_message`, "");
     const message_raw_text = "A request for this SRF ID already exists with the following details:" +
-      (patient_name && "\n\nRequirement: {requirement}\nSPO2 level: {spo2}\nBed type: {bed_type}\nNeeds cylinder: {needs_cylinder}\nCovid test result: {covid_test_result}\nCT Scan done?: {ct_scan_done}\nCT Score: {ct_score}\nBU number: {bu_number}\nSRF ID: {srf_id}\nName: {name}\nAge: {age}\nGender: {gender}\nBlood group: {blood_group}\nMobile number: {mobile_number}\nAlt mobile number: {alt_mobile_number}\nAddress: {address}\nHospital preference: {hospital_preference}\nRegistered with 1912 / 108: {registered_1912_108}") +
+      (patient_name && "\n\nZone: {zone}\nRequirement: {requirement}\nSPO2 level: {spo2}\nBed type: {bed_type}\nNeeds cylinder: {needs_cylinder}\nCovid test result: {covid_test_result}\nCT Scan done?: {ct_scan_done}\nCT Score: {ct_score}\nBU number: {bu_number}\nSRF ID: {srf_id}\nName: {name}\nAge: {age}\nGender: {gender}\nBlood group: {blood_group}\nMobile number: {mobile_number}\nAlt mobile number: {alt_mobile_number}\nAddress: {address}\nHospital preference: {hospital_preference}\nRegistered with 1912 / 108: {registered_1912_108}") +
       (forward_message && "\n\n{forward_message}") +
       "\n\nDo you want to update this request? [[Yes, No]]";
     const slots_store = getObjectProperty(global_store, `requests.${request_id}.data`, {});
@@ -481,7 +482,7 @@ Registered with 1912 / 108: { registered_1912_108 } `;
       chat_tracker.store.forward_message = chat_tracker.store["cache"].forward_message = "";
     }
 
-    return is_forward_update ? "forward_summary" : "requirement";
+    return is_forward_update ? "forward_summary" : "zone";
   },
 
   "checkSpo2": async function (update, chat_tracker, global_store, bot_definition) {
