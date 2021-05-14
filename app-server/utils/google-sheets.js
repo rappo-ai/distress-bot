@@ -13,10 +13,16 @@ async function createSpreadsheet(ssid, headers) {
     await doc.useServiceAccountAuth(creds);
     await doc.loadInfo(); // loads document properties and worksheets
 
-    const sheet = await doc.sheetsByTitle[process.env.SHEET_NAME] || await doc.addSheet({ title: process.env.SHEET_NAME, headerValues: headers });
-    sheetCache[ssid] = { doc, sheet };
+    const sheet = await doc.sheetsByTitle[process.env.SHEET_NAME] || await doc.addSheet({ title: process.env.SHEET_NAME, headerValues: headers, gridProperties: { columnCount: headers.length } });
+    const rows = await sheet.getRows();
+    const headers_index = {};
+    let index = 0;
+    headers.forEach(h => headers_index[h] = index++);
+    sheetCache[ssid] = { doc, sheet, headers_index, rows };
+    return rows;
   } catch (err) {
     logger.error(`createSpreadsheet ${err}`);
+    return [];
   }
 }
 
@@ -28,7 +34,12 @@ async function addRow(ssid, dictionary) {
       logger.error(`addRow Sheet not found in cache for ssid ${ssid}`);
       return;
     }
-    return sheet.addRow(dictionary).catch(err => logger.error(`addRow addRow ${err}`));
+    const rows = sheetCache[ssid]["rows"];
+    if (!rows) {
+      logger.error(`addRow rows not found in cache for ssid ${ssid}`);
+      return;
+    }
+    rows.push(await sheet.addRow(dictionary).catch(err => logger.error(`addRow addRow ${err}`)));
   } catch (err) {
     logger.error(`addRow ${err}`);
   }
@@ -45,10 +56,15 @@ async function updateRow(ssid, selector, dictionary) {
       logger.error(`updateRow Sheet not found in cache for ssid ${ssid}`);
       return;
     }
+    const rows = sheetCache[ssid]["rows"];
+    if (!rows) {
+      logger.error(`updateRow rows not found in cache for ssid ${ssid}`);
+      return;
+    }
     if (!Array.isArray(selector)) {
       selector = [selector];
     }
-    const rows = await sheet.getRows();
+
     const row_to_update = rows.find(r => selector.every(s => r[s.key] === s.value));
     if (!row_to_update) {
       logger.warn(`updateRow Unable to find row for selector ${selector}`);

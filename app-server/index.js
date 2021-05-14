@@ -9,6 +9,7 @@ const morgan = require('morgan')('combined');
 const argv = require('./argv');
 const logger = require('./logger');
 const webhooks = require('./middlewares/webhooks');
+const { initRuntime } = require('./runtimes/telegram');
 const { callTelegramApi, getWebhookUrl } = require('./utils/telegram');
 const port = require('./port');
 
@@ -67,8 +68,9 @@ app.listen(port, host, async err => {
   }
 
   try {
-    let setWebhookResponse;
+    await initRuntime();
 
+    let setWebhookResponse;
     logger.info(`Calling setWebhook for bot with username ${process.env.TELEGRAM_BOT_USERNAME}`);
     setWebhookResponse = await callTelegramApi("setWebhook", process.env.TELEGRAM_BOT_TOKEN, {
       url: getWebhookUrl(hostUrl, process.env.TELEGRAM_BOT_USERNAME, process.env.TELEGRAM_BOT_SECRET),
