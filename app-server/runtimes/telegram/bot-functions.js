@@ -96,7 +96,7 @@ async function updateAdminThread(request_id, raw_message, sent_by, replied_by, d
     });
     new_admin_thread_message_text = new_message_lines.join("\n");
   } else {
-    new_admin_thread_message_text = `${status_text}\n\n${header_text}\nSent by ${sent_by} on ${formatDate(date)}${patient_name && `\nPatient Name: ${patient_name}`}${srf_id && `\nSRF ID: ${srf_id}`}\n\n${raw_message}\n\nReply to this message to send a message to user in PM.\n\n${request_id}`;
+    new_admin_thread_message_text = `${status_text}\n\n${header_text}\nSent by ${sent_by} on ${formatDate(date)}\n\n${raw_message}\n\nReply to this message to send a message to user in PM.\n\n${request_id}`;
   }
 
   // send new message
@@ -444,6 +444,16 @@ Registered with 1912 / 108: { registered_1912_108 } `;
     if (srf_id_match) {
       srf_id = srf_id_match[0];
     }
+    let patient_name = "";
+    const patient_name_match = message_text.match(/name.*:\s*(.*)\s*/i);
+    if (patient_name_match && patient_name_match.length > 1) {
+      patient_name = patient_name_match[1].trim();
+    }
+    let bbmp_zone = "";
+    const bbmp_zone_match = message_text.match(/zone.*:\s*(.*)\s*/i);
+    if (bbmp_zone_match && bbmp_zone_match.length > 1) {
+      bbmp_zone = bbmp_zone_match[1].trim();
+    }
     const is_valid_template = !!srf_id;
     // tbd  - validate the above slots and add the result in is_valid_template
     if (!is_valid_template) {
@@ -454,7 +464,10 @@ Registered with 1912 / 108: { registered_1912_108 } `;
       }, process.env.TELEGRAM_BOT_TOKEN);
       return "forward_template_retry";
     }
+    chat_tracker.store["zone"] = chat_tracker.store["cache"]["zone"] = bbmp_zone;
+    chat_tracker.store["name"] = chat_tracker.store["cache"]["name"] = patient_name;
     chat_tracker.store["srf_id"] = chat_tracker.store["cache"]["srf_id"] = srf_id;
+
     return "check_duplicate_forward_srf_id";
   },
 
