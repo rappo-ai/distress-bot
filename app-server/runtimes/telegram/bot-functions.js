@@ -205,11 +205,7 @@ const functions = {
         status: "open",
         ...getObjectProperty(global_store, `requests.${request_id}.data`, {}),
       }
-      // const updated_mapping={};
-      // spreadsheet_headers.forEach(function(header) {
-      //   updated_mapping[header]=(sheet_data[header]?sheet_data[header]:"");
       
-      // })
       const saved_tracker_updated = new TrackerModel(updated_sheet_data);
      
       await saved_tracker_updated.save().then(() => console.log('updated tracker saved to db'))
