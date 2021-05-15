@@ -13,9 +13,8 @@ const en_strings = {
   "waiting_for_response": "Your message has been recorded. We are trying our best to help, but until we revert back to you with an update please dial 1912 or 108 for beds.\n\nWe wish a speedy recovery for your loved ones.",
 };
 
-const trackerSchema=require('../../utils/trackerSchema');
-const {Tracker}=require('../../utils/trackerSchema');
-
+const {TrackerModel}=require('../../db/schema/trackerSchema');
+const {spreadsheet_headers}=require('./bot-definition');
 
 function getDisplayName(user_name, first_name, last_name) {
   return `${user_name ? `@${user_name}` : (first_name || "") + first_name && " " + (last_name || "")}`;
@@ -31,36 +30,12 @@ async function createRequestId(data, global_store) {
     admin_thread_message_id: "",
     admin_thread_message_text: "",
   };
-
   const sheet_data = Object.assign({}, data);
   sheet_data["request_id"] = request_id;
   sheet_data["creation_time"] = formatDate(Date.now()); 
-
-
-  const saved_tracker = new Tracker({last_update_time: (sheet_data["last_update_time"]?sheet_data["last_update_time"]:""),
-    srf_id: sheet_data["srf_id"],
-    requirement: sheet_data["requirement"],
-    spo2: (sheet_data["spo2"]?sheet_data["spo2"]:""),
-    needs_cylinder: (sheet_data["needs_cylinder"]?sheet_data["needs_cylinder"]:""),
-    covid_test_result: sheet_data["covid_test_result"],
-    ct_scan_done: (sheet_data["ct_scan_done"]?sheet_data["ct_scan_done"]:""),
-    ct_score:(sheet_data["ct_score"]?sheet_data["ct_score"]:""),
-    bed_type:(sheet_data["bed_type"]?sheet_data["bed_type"]:""),
-    bu_number: (sheet_data["bu_number"]?sheet_data["bu_number"]:""),
-    name: sheet_data["name"],
-    age: sheet_data["age"],
-    gender: sheet_data["gender"],
-    blood_group:  (sheet_data["blood_group"]?sheet_data["blood_group"]:""),
-    mobile_number: sheet_data["mobile_number"],
-    alt_mobile_number: sheet_data["alt_mobile_number"],
-    address: sheet_data["address"],
-    hospital_preference: sheet_data["hospital_preference"],
-    registered_1912_108: sheet_data["registered_1912_108"],
-    request_id: sheet_data["request_id"],
-    creation_time: sheet_data["creation_time"],
-    forward_message: (sheet_data["forward_message"]?sheet_data["forward_message"]:""),
-  });
-  saved_tracker.save().then(() => console.log('tracker saved to db'))
+ 
+  const saved_tracker = new TrackerModel(sheet_data);
+  await saved_tracker.save().then(() => console.log('tracker saved to db'))
   .catch(error => { 
     console.log(error); 
 });
@@ -192,32 +167,14 @@ const functions = {
         last_update_time: formatDate(Date.now()),
         ...getObjectProperty(global_store, `requests.${request_id}.data`, {}),
       }
+      // const updated_mapping={};
+      // spreadsheet_headers.forEach(function(header) {
+      //   updated_mapping[header]=(sheet_data[header]?sheet_data[header]:"");
       
-      const saved_tracker_updated = new Tracker({last_update_time: (updated_sheet_data["last_update_time"]?updated_sheet_data["last_update_time"]:""),
-  srf_id: updated_sheet_data["srf_id"],
-  requirement: updated_sheet_data["requirement"],
-  spo2: (updated_sheet_data["spo2"]?updated_sheet_data["spo2"]:""),
-  needs_cylinder: (updated_sheet_data["needs_cylinder"]?updated_sheet_data["needs_cylinder"]:""),
-  covid_test_result: updated_sheet_data["covid_test_result"],
-  ct_scan_done: (updated_sheet_data["ct_scan_done"]?updated_sheet_data["ct_scan_done"]:""),
-  ct_score:(updated_sheet_data["ct_score"]?updated_sheet_data["ct_score"]:""),
-  bed_type:(updated_sheet_data["bed_type"]?updated_sheet_data["bed_type"]:""),
-  bu_number: (updated_sheet_data["bu_number"]?updated_sheet_data["bu_number"]:""),
-  name: updated_sheet_data["name"],
-  age: updated_sheet_data["age"],
-  gender: updated_sheet_data["gender"],
-  blood_group:  (updated_sheet_data["blood_group"]?updated_sheet_data["blood_group"]:""),
-  mobile_number: updated_sheet_data["mobile_number"],
-  alt_mobile_number: updated_sheet_data["alt_mobile_number"],
-  address: updated_sheet_data["address"],
-  hospital_preference: updated_sheet_data["hospital_preference"],
-  registered_1912_108: updated_sheet_data["registered_1912_108"],
-  request_id: updated_sheet_data["request_id"],
-  creation_time: updated_sheet_data["creation_time"],
-  forward_message: (updated_sheet_data["forward_message"]?updated_sheet_data["forward_message"]:""),
-    });
+      // })
+      const saved_tracker_updated = new TrackerModel(updated_sheet_data);
      
-      saved_tracker_updated.save().then(() => console.log('updated tracker saved to db'))
+      await saved_tracker_updated.save().then(() => console.log('updated tracker saved to db'))
       .catch(error => { 
         console.log(error); 
     });
