@@ -342,14 +342,14 @@ module.exports = {
       name: "bu_number",
       action: {
         type: "send_message",
-        text: "What is the 6-digit BU number? [[{cache.bu_number}][Not yet assigned]]",
+        text: "What is the BU number? [[{cache.bu_number}][Not yet assigned]]",
       },
       slots: {
         message_text: "bu_number",
       },
-      validation: "^\\d{6}$|^Not yet assigned$",
+      validation: "^\\d+$|^Not yet assigned$",
       persist_slot: true,
-      fallback: "Please enter the 6-digit BU number: [[{cache.bu_number}][Not yet assigned]]",
+      fallback: "Please enter just the number: [[{cache.bu_number}][Not yet assigned]]",
       transitions: [
         {
           on: "*",
@@ -408,7 +408,7 @@ module.exports = {
       name: "gender",
       action: {
         type: "send_message",
-        text: "What is the gender of the patient?\n{gender} [[Male, Female]]",
+        text: "What is the gender of the patient? [[Male, Female]]",
       },
       slots: {
         message_text: "gender",
