@@ -14,7 +14,7 @@ const en_strings = {
 };
 
 function getDisplayName(user_name, first_name, last_name) {
-  return `${user_name ? `@${user_name}` : (first_name || "") + first_name && " " + (last_name || "")}`;
+  return `${user_name ? `@${user_name}` : (first_name || "") + first_name && " " + (last_name || "")}` || `Anonymous`;
 }
 
 async function createRequestId(data, global_store) {
@@ -49,20 +49,29 @@ function getRequestIdForSrfId(srf_id, global_store) {
 }
 
 async function updateAdminThread(request_id, raw_message, sent_by, replied_by, date, new_reply_markup, global_store) {
+  const zone = getObjectProperty(global_store, `requests.${request_id}.data.zone`, "");
+  const creation_time = getObjectProperty(global_store, `requests.${request_id}.creation_time`, "");
   const patient_name = getObjectProperty(global_store, `requests.${request_id}.data.name`, "");
   const srf_id = getObjectProperty(global_store, `requests.${request_id}.data.srf_id`, "");
   const status = getObjectProperty(global_store, `requests.${request_id}.status`, "open");
   const admin_thread_message_id = getObjectProperty(global_store, `requests.${request_id}.admin_thread_message_id`, "");
   let admin_thread_message_text = getObjectProperty(global_store, `requests.${request_id}.admin_thread_message_text`, "");
 
+  let header_text = "";
+  header_text += `Zone: ${zone || 'N/A'}\n`;
+  header_text += `Request Date: ${creation_time}\n`;
+  header_text += `Patient Name: ${patient_name || 'N/A'}\n`;
+  header_text += `SRF ID: ${srf_id || 'N/A'}\n`;
+  header_text += "-----\n";
+
   let status_text;
   switch (status) {
     case "closed":
-      status_text = "STATUS: CLOSED";
+      status_text = "STATUS: CLOSED 🛑";
       break;
     case "open":
     default:
-      status_text = "STATUS: OPEN";
+      status_text = "STATUS: OPEN 🚧";
       break;
   }
   let new_admin_thread_message_text;
@@ -74,7 +83,7 @@ async function updateAdminThread(request_id, raw_message, sent_by, replied_by, d
         line = status_text;
       }
       new_message_lines.push(line);
-      if (line.startsWith("STATUS")) {
+      if (line.startsWith("-----")) {
         new_message_lines.push("");
         if (sent_by) {
           new_message_lines.push(`Sent by ${sent_by} on ${formatDate(date)} `);
@@ -87,7 +96,7 @@ async function updateAdminThread(request_id, raw_message, sent_by, replied_by, d
     });
     new_admin_thread_message_text = new_message_lines.join("\n");
   } else {
-    new_admin_thread_message_text = `${status_text}\n\nSent by ${sent_by} on ${formatDate(date)}${patient_name && `\nPatient Name: ${patient_name}`}${srf_id && `\nSRF ID: ${srf_id}`}\n\n${raw_message}\n\nReply to this message to send a message to user in PM.\n\n${request_id}`;
+    new_admin_thread_message_text = `${status_text}\n\n${header_text}\nSent by ${sent_by} on ${formatDate(date)}${patient_name && `\nPatient Name: ${patient_name}`}${srf_id && `\nSRF ID: ${srf_id}`}\n\n${raw_message}\n\nReply to this message to send a message to user in PM.\n\n${request_id}`;
   }
 
   // send new message
