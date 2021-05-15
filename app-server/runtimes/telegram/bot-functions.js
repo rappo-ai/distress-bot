@@ -17,22 +17,29 @@ const {TrackerModel}=require('../../db/schema/trackerSchema');
 const {spreadsheet_headers}=require('./bot-definition');
 
 function getDisplayName(user_name, first_name, last_name) {
-  return `${user_name ? `@${user_name}` : (first_name || "") + first_name && " " + (last_name || "")}`;
+  return `${user_name ? `@${user_name}` : (first_name || "") + first_name && " " + (last_name || "")}` || `Anonymous`;
 }
 
 async function createRequestId(data, global_store) {
   const request_id = nanoid();
+  const request_data = Object.assign({}, data);
+  if (request_data["cache"]) {
+    delete request_data["cache"];
+  }
+  const creation_time = formatDate(Date.now());
   global_store["requests"][request_id] = {
     request_id,
-    data: Object.assign({}, data),
+    creation_time,
     status: "open",
+    data: request_data,
     active_chats: [],
     admin_thread_message_id: "",
     admin_thread_message_text: "",
   };
   const sheet_data = Object.assign({}, data);
   sheet_data["request_id"] = request_id;
-  sheet_data["creation_time"] = formatDate(Date.now()); 
+  sheet_data["creation_time"] = formatDate(Date.now());
+  sheet_data["status"] = "open";
  
   const saved_tracker = new TrackerModel(sheet_data);
   await saved_tracker.save().then(() => console.log('tracker saved to db'))
@@ -51,20 +58,29 @@ function getRequestIdForSrfId(srf_id, global_store) {
 }
 
 async function updateAdminThread(request_id, raw_message, sent_by, replied_by, date, new_reply_markup, global_store) {
+  const zone = getObjectProperty(global_store, `requests.${request_id}.data.zone`, "");
+  const creation_time = getObjectProperty(global_store, `requests.${request_id}.creation_time`, "");
   const patient_name = getObjectProperty(global_store, `requests.${request_id}.data.name`, "");
   const srf_id = getObjectProperty(global_store, `requests.${request_id}.data.srf_id`, "");
   const status = getObjectProperty(global_store, `requests.${request_id}.status`, "open");
   const admin_thread_message_id = getObjectProperty(global_store, `requests.${request_id}.admin_thread_message_id`, "");
   let admin_thread_message_text = getObjectProperty(global_store, `requests.${request_id}.admin_thread_message_text`, "");
 
+  let header_text = "";
+  header_text += `Zone: ${zone || 'N/A'}\n`;
+  header_text += `Request Date: ${creation_time}\n`;
+  header_text += `Patient Name: ${patient_name || 'N/A'}\n`;
+  header_text += `SRF ID: ${srf_id || 'N/A'}\n`;
+  header_text += "-----\n";
+
   let status_text;
   switch (status) {
     case "closed":
-      status_text = "STATUS: CLOSED";
+      status_text = "STATUS: CLOSED 🛑";
       break;
     case "open":
     default:
-      status_text = "STATUS: OPEN";
+      status_text = "STATUS: OPEN 🚧";
       break;
   }
   let new_admin_thread_message_text;
@@ -76,7 +92,7 @@ async function updateAdminThread(request_id, raw_message, sent_by, replied_by, d
         line = status_text;
       }
       new_message_lines.push(line);
-      if (line.startsWith("STATUS")) {
+      if (line.startsWith("-----")) {
         new_message_lines.push("");
         if (sent_by) {
           new_message_lines.push(`Sent by ${sent_by} on ${formatDate(date)} `);
@@ -89,7 +105,7 @@ async function updateAdminThread(request_id, raw_message, sent_by, replied_by, d
     });
     new_admin_thread_message_text = new_message_lines.join("\n");
   } else {
-    new_admin_thread_message_text = `${status_text}\n\nSent by ${sent_by} on ${formatDate(date)}${patient_name && `\nPatient Name: ${patient_name}`}${srf_id && `\nSRF ID: ${srf_id}`}\n\n${raw_message}\n\nReply to this message to send a message to user in PM.\n\n${request_id}`;
+    new_admin_thread_message_text = `${status_text}\n\n${header_text}\nSent by ${sent_by} on ${formatDate(date)}\n\n${raw_message}\n\nReply to this message to send a message to user in PM.\n\n${request_id}`;
   }
 
   // send new message
@@ -107,7 +123,7 @@ async function updateAdminThread(request_id, raw_message, sent_by, replied_by, d
 
   if (admin_thread_message_id) {
     // delete previous message
-    api_response = await deleteMessage({
+    await deleteMessage({
       chat_id: process.env.TELEGRAM_ADMIN_GROUP_CHAT_ID,
       message_id: admin_thread_message_id,
     }, process.env.TELEGRAM_BOT_TOKEN);
@@ -117,9 +133,9 @@ async function updateAdminThread(request_id, raw_message, sent_by, replied_by, d
   await updateRow(process.env.SPREADSHEET_ID, { key: "request_id", value: request_id }, {
     status,
     last_update_time: formatDate(Date.now()),
-    admin_thread_message_id,
-    admin_thread_message_text,
-    active_chats: active_chats.join(),
+    admin_thread_message_id: api_response.data.result.message_id,
+    admin_thread_message_text: new_admin_thread_message_text,
+    active_chats: active_chats.join(', '),
   });
 }
 
@@ -145,7 +161,28 @@ ${request_id}`;
 
 const functions = {
   "init": async function (update, chat_tracker, global_store, bot_definition) {
-    await createSpreadsheet(process.env.SPREADSHEET_ID, bot_definition.spreadsheet_headers);
+    const rows = await createSpreadsheet(process.env.SPREADSHEET_ID, bot_definition.spreadsheet_headers);
+    let num_loaded_rows = 0;
+    rows.forEach(r => {
+      try {
+        const request_id = r["request_id"];
+        setObjectProperty(global_store, `requests.${request_id}.request_id`, r["request_id"]);
+        setObjectProperty(global_store, `requests.${request_id}.creation_time`, r["creation_time"]);
+        setObjectProperty(global_store, `requests.${request_id}.last_update_time`, r["last_update_time"]);
+        setObjectProperty(global_store, `requests.${request_id}.status`, r["status"]);
+        setObjectProperty(global_store, `requests.${request_id}.active_chats`, (r["active_chats"] || "").split(",").map(c => parseInt(c)).filter(c => c === c)); // last filter is to weed out NaN
+        setObjectProperty(global_store, `requests.${request_id}.admin_thread_message_id`, r["admin_thread_message_id"]);
+        setObjectProperty(global_store, `requests.${request_id}.admin_thread_message_text`, r["admin_thread_message_text"]);
+        setObjectProperty(global_store, `requests.${request_id}.data`, {});
+        bot_definition.spreadsheet_headers.filter(h => !["request_id", "creation_time", "last_update_time", "status", "active_chats", "admin_thread_message_id", "admin_thread_message_text"].includes(h)).forEach(h => {
+          setObjectProperty(global_store, `requests.${request_id}.data.${h}`, r[h]);
+        });
+        ++num_loaded_rows;
+      } catch (err) {
+        logger.warn(`init ${err}`);
+      }
+    });
+    logger.info(`Parsed ${rows.length} rows from spreadsheet; Successfully loaded ${num_loaded_rows} rows`);
   },
   "submitForm": async function (update, chat_tracker, global_store, bot_definition) {
     const srf_id = chat_tracker.store["srf_id"];
@@ -165,6 +202,7 @@ const functions = {
       }
       const updated_sheet_data={
         last_update_time: formatDate(Date.now()),
+        status: "open",
         ...getObjectProperty(global_store, `requests.${request_id}.data`, {}),
       }
       // const updated_mapping={};
@@ -190,11 +228,14 @@ const functions = {
     const date = getDateMs(update);
     const user_display_name = getDisplayName(user_name, first_name, last_name);
 
-    const active_chats = [chat_id];
-    active_chats.push(...getObjectProperty(global_store, `requests.${request_id}.active_chats`));
+    const active_chats = getObjectProperty(global_store, `requests.${request_id}.active_chats`, []);
+    if (!active_chats.includes(chat_id)) {
+      active_chats.push(chat_id);
+    }
     setObjectProperty(global_store, `requests.${request_id}.active_chats`, active_chats);
 
-    let admin_thread_update_text = has_forward_message ? `{ forward_message }` : `Requirement: { requirement }
+    let admin_thread_update_text = has_forward_message ? `{ forward_message }` : `Zone: { zone }
+Requirement: { requirement }
 SPO2 level: { spo2 }
 Bed type: { bed_type }
 Needs cylinder: { needs_cylinder }
@@ -346,7 +387,7 @@ Registered with 1912 / 108: { registered_1912_108 } `;
         request_id,
         chat_id,
         undefined,
-        admin_thread_update_text,
+        `INCOMING MESSAGE:\n\n${admin_thread_update_text}`,
         user_reply_markup,
         global_store)
       );
@@ -427,17 +468,30 @@ Registered with 1912 / 108: { registered_1912_108 } `;
     if (srf_id_match) {
       srf_id = srf_id_match[0];
     }
+    let patient_name = "";
+    const patient_name_match = message_text.match(/name.*:\s*(.*)\s*/i);
+    if (patient_name_match && patient_name_match.length > 1) {
+      patient_name = patient_name_match[1].trim();
+    }
+    let bbmp_zone = "";
+    const bbmp_zone_match = message_text.match(/zone.*:\s*(.*)\s*/i);
+    if (bbmp_zone_match && bbmp_zone_match.length > 1) {
+      bbmp_zone = bbmp_zone_match[1].trim();
+    }
     const is_valid_template = !!srf_id;
     // tbd  - validate the above slots and add the result in is_valid_template
     if (!is_valid_template) {
       await sendMessage({
         chat_id,
-        text: `The template is invalid.Please make sure your request has a 13 - digit SRF ID and send the template again.`,
+        text: `The template is invalid. Please make sure your request has the mandatory 13-digit SRF ID and send the template again.`,
         reply_markup: { inline_keyboard: getInlineKeyboard("[[Cancel]]") },
       }, process.env.TELEGRAM_BOT_TOKEN);
       return "forward_template_retry";
     }
+    chat_tracker.store["zone"] = chat_tracker.store["cache"]["zone"] = bbmp_zone;
+    chat_tracker.store["name"] = chat_tracker.store["cache"]["name"] = patient_name;
     chat_tracker.store["srf_id"] = chat_tracker.store["cache"]["srf_id"] = srf_id;
+
     return "check_duplicate_forward_srf_id";
   },
 
@@ -445,11 +499,11 @@ Registered with 1912 / 108: { registered_1912_108 } `;
     let srf_id = chat_tracker.store["srf_id"];
     if (srf_id.search(/^\d{13}$/) === -1) {
       srf_id = chat_tracker.store["srf_id"] = chat_tracker.store["cache"]["srf_id"] = "";
-      return "requirement";
+      return "zone";
     }
     const request_id = getRequestIdForSrfId(srf_id, global_store);
     if (!request_id) {
-      return "requirement";
+      return "zone";
     }
 
     return "confirm_duplicate_update";
@@ -471,7 +525,7 @@ Registered with 1912 / 108: { registered_1912_108 } `;
     const patient_name = getObjectProperty(global_store, `requests.${request_id}.data.name`, "");
     const forward_message = getObjectProperty(global_store, `requests.${request_id}.data.forward_message`, "");
     const message_raw_text = "A request for this SRF ID already exists with the following details:" +
-      (patient_name && "\n\nRequirement: {requirement}\nSPO2 level: {spo2}\nBed type: {bed_type}\nNeeds cylinder: {needs_cylinder}\nCovid test result: {covid_test_result}\nCT Scan done?: {ct_scan_done}\nCT Score: {ct_score}\nBU number: {bu_number}\nSRF ID: {srf_id}\nName: {name}\nAge: {age}\nGender: {gender}\nBlood group: {blood_group}\nMobile number: {mobile_number}\nAlt mobile number: {alt_mobile_number}\nAddress: {address}\nHospital preference: {hospital_preference}\nRegistered with 1912 / 108: {registered_1912_108}") +
+      (patient_name && "\n\nZone: {zone}\nRequirement: {requirement}\nSPO2 level: {spo2}\nBed type: {bed_type}\nNeeds cylinder: {needs_cylinder}\nCovid test result: {covid_test_result}\nCT Scan done?: {ct_scan_done}\nCT Score: {ct_score}\nBU number: {bu_number}\nSRF ID: {srf_id}\nName: {name}\nAge: {age}\nGender: {gender}\nBlood group: {blood_group}\nMobile number: {mobile_number}\nAlt mobile number: {alt_mobile_number}\nAddress: {address}\nHospital preference: {hospital_preference}\nRegistered with 1912 / 108: {registered_1912_108}") +
       (forward_message && "\n\n{forward_message}") +
       "\n\nDo you want to update this request? [[Yes, No]]";
     const slots_store = getObjectProperty(global_store, `requests.${request_id}.data`, {});
@@ -499,7 +553,7 @@ Registered with 1912 / 108: { registered_1912_108 } `;
       chat_tracker.store.forward_message = chat_tracker.store["cache"].forward_message = "";
     }
 
-    return is_forward_update ? "forward_summary" : "requirement";
+    return is_forward_update ? "forward_summary" : "zone";
   },
 
   "checkSpo2": async function (update, chat_tracker, global_store, bot_definition) {

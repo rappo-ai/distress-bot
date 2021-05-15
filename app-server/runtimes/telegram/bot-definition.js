@@ -3,7 +3,7 @@ module.exports = {
   default_fallback: "Please read the instructions and respond as asked.",
   command_fallback: "This is not a valid command",
   debug_channel_chat_id: process.env.TELEGRAM_DEBUG_CHANNEL_CHAT_ID,
-  spreadsheet_headers: ["request_id", "creation_time", "last_update_time", "status", "srf_id", "forward_message", "name", "spo2", "mobile_number", "registered_1912_108", "bu_number", "requirement", "bed_type", "needs_cylinder", "covid_test_result", "ct_scan_done", "ct_score", "age", "gender", "blood_group", "address", "alt_mobile_number", "hospital_preference", "admin_thread_message_id", "admin_thread_message_text", "active_chats"],
+  spreadsheet_headers: ["request_id", "creation_time", "last_update_time", "status", "srf_id", "forward_message", "name", "spo2", "mobile_number", "registered_1912_108", "bu_number", "zone", "requirement", "bed_type", "needs_cylinder", "covid_test_result", "ct_scan_done", "ct_score", "age", "gender", "blood_group", "address", "alt_mobile_number", "hospital_preference", "admin_thread_message_id", "admin_thread_message_text", "active_chats"],
   commands: [
     {
       trigger: "/start",
@@ -25,7 +25,7 @@ module.exports = {
       action: [
         {
           type: "send_message",
-          text: "Hi! I am here to assist you with Covid requests for the state of Karnataka.",
+          text: "Hi! I am here to assist you with Covid requests for the state of Karnataka.\n\nThere are 2 ways I can help you. If you already have a message typed with all the details of the patient, you can simply forward that message using the Forward Template option. Else if you are creating a new request from scratch, use the New Request option and I will guide you with a series of around 20 questions to gather all the information we need.\n\nAt any point of time you can type /restart to restart the workflow.\n\nThis bot was created by Rappo AI. Follow our channel @rappoai to discover our Telegram bots. Get in touch with us at @rappoaisupport.",
         },
         {
           type: "goto_state",
@@ -157,6 +157,24 @@ module.exports = {
         type: "call_function",
         method: "updateDuplicate",
       },
+    },
+    {
+      name: "zone",
+      action: {
+        type: "send_message",
+        text: "Please select the BBMP zone: [[East, West, South][Mahadevapura, Bommanahalli][Yelahanka, R.R. Nagar][Dasarahalli, Outside Bengaluru]]",
+      },
+      slots: {
+        message_text: "zone",
+      },
+      validation: "^East$|^West$|^South$|^Mahadevapura$|^Bommanahalli$|^Yelahanka$|^R\\.R\\. Nagar$|^Dasarahalli$|^Outside Bengaluru$",
+      fallback: "Please select the zone from one of the available options: [[East, West, South][Mahadevapura, Bommanahalli][Yelahanka, R.R. Nagar][Dasarahalli, Outside Bengaluru]]",
+      transitions: [
+        {
+          on: "*",
+          to: "requirement",
+        },
+      ],
     },
     {
       name: "requirement",
@@ -324,14 +342,14 @@ module.exports = {
       name: "bu_number",
       action: {
         type: "send_message",
-        text: "What is the 6-digit BU number? [[{cache.bu_number}][Not yet assigned]]",
+        text: "What is the BU number? [[{cache.bu_number}][Not yet assigned]]",
       },
       slots: {
         message_text: "bu_number",
       },
-      validation: "^\\d{6}$|^Not yet assigned$",
+      validation: "^\\d+$|^Not yet assigned$",
       persist_slot: true,
-      fallback: "Please enter the 6-digit BU number: [[{cache.bu_number}][Not yet assigned]]",
+      fallback: "Please enter just the number: [[{cache.bu_number}][Not yet assigned]]",
       transitions: [
         {
           on: "*",
@@ -390,7 +408,7 @@ module.exports = {
       name: "gender",
       action: {
         type: "send_message",
-        text: "What is the gender of the patient?\n{gender} [[Male, Female]]",
+        text: "What is the gender of the patient? [[Male, Female]]",
       },
       slots: {
         message_text: "gender",
@@ -515,15 +533,15 @@ module.exports = {
       action: [
         {
           type: "send_message",
-          text: "Summary of your request:\n\nRequirement: {requirement}\nSPO2 level: {spo2}\nBed type: {bed_type}\nNeeds cylinder: {needs_cylinder}\nCovid test result: {covid_test_result}\nCT Scan done?: {ct_scan_done}\nCT Score: {ct_score}\nBU number: {bu_number}\nSRF ID: {srf_id}\nName: {name}\nAge: {age}\nGender: {gender}\nBlood group: {blood_group}\nMobile number: {mobile_number}\nAlt mobile number: {alt_mobile_number}\nAddress: {address}\nHospital preference: {hospital_preference}\nRegistered with 1912 / 108: {registered_1912_108}",
+          text: "Summary of your request:\n\nZone: {zone}\nRequirement: {requirement}\nSPO2 level: {spo2}\nBed type: {bed_type}\nNeeds cylinder: {needs_cylinder}\nCovid test result: {covid_test_result}\nCT Scan done?: {ct_scan_done}\nCT Score: {ct_score}\nBU number: {bu_number}\nSRF ID: {srf_id}\nName: {name}\nAge: {age}\nGender: {gender}\nBlood group: {blood_group}\nMobile number: {mobile_number}\nAlt mobile number: {alt_mobile_number}\nAddress: {address}\nHospital preference: {hospital_preference}\nRegistered with 1912 / 108: {registered_1912_108}",
           default_slot_value: "N/A",
         },
         {
           type: "send_message",
-          text: "Is this correct? [[Yes][No]]"
+          text: "Is this correct? [[Yes, No]]"
         },
       ],
-      fallback: "Please confirm with a Yes / No. [[Yes][No]]",
+      fallback: "Please confirm with a Yes / No. [[Yes, No]]",
       transitions: [
         {
           on: "Yes",
@@ -544,10 +562,10 @@ module.exports = {
         },
         {
           type: "send_message",
-          text: "Is this correct? [[Yes][No]]"
+          text: "Is this correct? [[Yes, No]]"
         },
       ],
-      fallback: "Please confirm with a Yes / No. [[Yes][No]]",
+      fallback: "Please confirm with a Yes / No. [[Yes, No]]",
       transitions: [
         {
           on: "Yes",

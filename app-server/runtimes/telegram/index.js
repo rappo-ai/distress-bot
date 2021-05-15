@@ -8,7 +8,19 @@ const logger = require('../../logger');
 const { TELEGRAM_MESSAGE_TYPES, sendMessage, leaveChat, getChatId } = require('../../utils/telegram');
 
 const bots = {};
-const isInit = false;
+
+async function initRuntime() {
+  await callFunction(
+    {
+      type: "call_function",
+      method: "init",
+    },
+    undefined,
+    undefined,
+    getGlobalStore(),
+    bot_definition
+  );
+}
 
 function addBot(username, secret, callbacks) {
   bots[username] = {
@@ -28,18 +40,6 @@ function hasAnyKey(object, baseKey, keys) {
 }
 
 async function processUpdate(task, callback) {
-  if (!isInit) {
-    await callFunction(
-      {
-        type: "call_function",
-        method: "init",
-      },
-      undefined,
-      undefined,
-      getGlobalStore(),
-      bot_definition
-    );
-  }
   try {
     const chat_type = getObjectProperty(task, "update.message.chat.type") ||
       getObjectProperty(task, "update.my_chat_member.chat.type") ||
@@ -139,5 +139,6 @@ addBot(process.env.TELEGRAM_BOT_USERNAME, process.env.TELEGRAM_BOT_SECRET, {
 });
 
 module.exports = {
+  initRuntime,
   getChatQueue,
 };
