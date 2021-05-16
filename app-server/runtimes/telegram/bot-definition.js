@@ -150,7 +150,7 @@ module.exports = {
         },
         {
           on: "No",
-          to: "request_type",
+          to: "sleep",
         },
       ]
     },
@@ -589,7 +589,7 @@ module.exports = {
         {
           type: "call_function",
           method: "submitForm",
-          on_success: "request_type",
+          on_success: "sleep",
           on_failure: "submit_form_failure",
         },
       ],
@@ -607,6 +607,15 @@ module.exports = {
         },
       ],
     },
+    {
+      name: "sleep",
+      transitions: [
+        {
+          on: "*",
+          to: "request_type",
+        },
+      ],
+    }
   ],
   group: {
     allow: process.env.TELEGRAM_ADMIN_GROUP_CHAT_ID,
