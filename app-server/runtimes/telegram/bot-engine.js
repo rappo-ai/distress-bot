@@ -206,7 +206,7 @@ async function processPMUpdate(update, chat_tracker, global_store, bot_definitio
   const message_text = getMessageText(update);
   const callback_data = replaceSlots(getCallbackData(update), chat_tracker.store);
   const callback_message_id = getCallbackMessageId(update);
-  const user_response = message_text || callback_data || "";
+  let user_response = message_text || callback_data || "";
   const current_state_name = chat_tracker.current_state_name;
   const current_state = bot_definition.states.find(s => s.name === current_state_name);
 
@@ -316,6 +316,11 @@ async function processPMUpdate(update, chat_tracker, global_store, bot_definitio
       }
     }
 
+    if (current_state.slot_transforms) {
+      if (Object.keys(current_state.slot_transforms).includes(user_response)) {
+        user_response = current_state.slot_transforms[user_response];
+      }
+    }
     addMessageSlotsToStore(current_state.slots, chat_store, user_response, message_id);
 
     if (current_state.transitions) {

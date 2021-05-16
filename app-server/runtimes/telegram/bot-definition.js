@@ -106,6 +106,9 @@ module.exports = {
       slots: {
         message_text: "srf_id",
       },
+      slot_transforms: {
+        "RTPCR test not done": "",
+      },
       validation: "^\\d{13}$|^RTPCR test not done$",
       fallback: "You need to enter the 13-digit SRF ID or click one of the options below: [[{cache.srf_id}][RTPCR test not done]]",
       transitions: [
@@ -147,7 +150,7 @@ module.exports = {
         },
         {
           on: "No",
-          to: "sleep",
+          to: "request_type",
         },
       ]
     },
@@ -467,6 +470,9 @@ module.exports = {
       slots: {
         message_text: "alt_mobile_number",
       },
+      slot_transforms: {
+        "Skip": "",
+      },
       validation: "^\\d{10}$|^Skip$",
       fallback: "Please enter a 10-digit mobile number. [[{cache.alt_mobile_number}, Skip]]",
       transitions: [
@@ -583,7 +589,7 @@ module.exports = {
         {
           type: "call_function",
           method: "submitForm",
-          on_success: "sleep",
+          on_success: "request_type",
           on_failure: "submit_form_failure",
         },
       ],
@@ -601,15 +607,6 @@ module.exports = {
         },
       ],
     },
-    {
-      name: "sleep",
-      transitions: [
-        {
-          on: "*",
-          to: "request_type",
-        },
-      ],
-    }
   ],
   group: {
     allow: process.env.TELEGRAM_ADMIN_GROUP_CHAT_ID,
