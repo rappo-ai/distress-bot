@@ -290,13 +290,12 @@ async function processPMUpdate(update, chat_tracker, global_store, bot_definitio
           bot_definition,
         );
         await doBotAction(
-          { type: "goto_state", state: current_state_name },
+          { type: "goto_state", state: "request_type" },
           chat_tracker,
           global_store,
           update,
           bot_definition,
         );
-        return;
       }
     }
     // tbd - handle all callback queries here and return
