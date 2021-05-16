@@ -18,6 +18,13 @@ module.exports = {
         type: "restart",
       },
     },
+    {
+      trigger: "/new",
+      action: {
+        type: "goto_state",
+        state: "request_type",
+      },
+    },
   ],
   states: [
     {
