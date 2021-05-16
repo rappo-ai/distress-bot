@@ -22,6 +22,7 @@ Distress Bot for Sahaya group
     - HOST [Optional] - in production, the domain name and path to the server
     - SPREADSHEET_ID [Optional] - the string between /d/ and /edit in URL of Google Spreadsheet; check out the website for detailed explanation https://developers.google.com/sheets/api/guides/concepts#spreadsheet_id .
     - SHEET_NAME [Optional] - name of the sheet you want to make in spreadsheet where you want to append all data.
+    - GA_UA_ID [Optional] - Google Analytics Universal Analytics ID.
 
 ## Build Option 1 - Docker (recommended)
 
