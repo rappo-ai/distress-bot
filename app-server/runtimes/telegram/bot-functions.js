@@ -4,6 +4,7 @@ const { nanoid } = require('nanoid');
 const { doBotAction, getInlineKeyboard, getTrackerForChat, removeReplyMarkup, replaceSlots } = require('./bot-engine');
 
 const logger = require('../../logger');
+const { sendEvent } = require('../../utils/analytics');
 const { formatDate } = require('../../utils/date');
 const { addRow, createSpreadsheet, updateRow } = require('../../utils/google-sheets');
 const { deleteMessage, getCallbackData, getCallbackMessageId, getCallbackMessageText, getChatId, getDateMs, getFirstName, getLastName, getMessageId, getMessageText, getReplyToMessageText, getUserName, sendMessage } = require('../../utils/telegram');
@@ -176,8 +177,9 @@ const functions = {
     logger.info(`Parsed ${rows.length} rows from spreadsheet; Successfully loaded ${num_loaded_rows} rows`);
   },
   "submitForm": async function (update, chat_tracker, global_store, bot_definition) {
-    const srf_id = chat_tracker.store["srf_id"];
     const has_forward_message = !!chat_tracker.store["forward_message"];
+    sendEvent(getChatId(update), "PM", "SubmitForm", has_forward_message ? "forward" : "new");
+    const srf_id = chat_tracker.store["srf_id"];
     let request_id = getRequestIdForSrfId(srf_id, global_store);
     if (!request_id) {
       request_id = await createRequestId(chat_tracker.store, global_store);

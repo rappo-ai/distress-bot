@@ -1,7 +1,7 @@
 const { get: getObjectProperty } = require('lodash/object');
 
 const logger = require('../../logger');
-
+const { sendEvent } = require('../../utils/analytics');
 const { answerCallbackQuery, editMessageText, forwardMessage, getCallbackData, getCallbackMessageId, getCallbackMessageText, getCallbackQueryId, getChatId, getMessageId, getMessageText, getReplyToMessageText, isCallbackQuery, isReplyToBot, isReplyToMessage, sendMessage } = require('../../utils/telegram');
 
 const tracker = {
@@ -341,6 +341,7 @@ async function processPMUpdate(update, chat_tracker, global_store, bot_definitio
 
   while (next_state_name) {
     chat_tracker.current_state_name = next_state_name;
+    sendEvent(getChatId(update), "PM", "StateChange", next_state_name);
     let action_list = bot_definition.states.find(s => s.name === next_state_name).action;
     if (!Array.isArray(action_list)) {
       action_list = [action_list];
