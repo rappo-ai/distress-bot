@@ -139,7 +139,7 @@ async function updateUserThread(request_id, chat_id, reply_to_message_id, raw_me
   const is_user_request_open = (status === "open") && active_chats.includes(chat_id);
   const message_text = `${patient_name && `Patient Name: ${patient_name}`}${srf_id && `\nSRF ID: ${srf_id}`}
 
-${raw_message}${is_user_request_open ? "\n\nReply to this message to send any extra info for this request." : ""}
+${raw_message}${is_user_request_open ? "\n\nReply to this message to send any extra info for this request. Click /new to create another request." : ""}
 
 ${request_id}`;
 
