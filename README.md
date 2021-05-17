@@ -17,6 +17,7 @@ Distress Bot for Sahaya group
     - TELEGRAM_BOT_USERNAME - username of the bot created with Telegram @BotFather; eg: if the bot's username is @mynewbot, please set this to mynewbot
     - TELEGRAM_BOT_TOKEN - the bot token of the above bot; you will get this from @BotFather
     - TELEGRAM_BOT_SECRET - any string; will be added to the webhook url to prevent unauthorized access, so pick something url safe and hard to guess
+    - TELEGRAM_ADMIN_GROUP_CHAT_ID [Optional] - the chat ID of the admin group where the bot will post updates
     - NGROK_AUTH_TOKEN [Optional] - authentication token for your ngrok account; useful if you want your ngrok sessions to not time out; sign up on https://ngrok.com to get one
     - NGROK_REGION [Optional] - the 2-character ngrok region code; eg: us, eu, in, etc.
     - HOST [Optional] - in production, the domain name and path to the server
