@@ -13,8 +13,8 @@ Distress Bot for Sahaya group
     - TELEGRAM_BOT_TOKEN
     - TELEGRAM_BOT_SECRET
 
-3.  Pointers about the Environment Variables
-    - The group chat id variable is a negative integer and can be obtained by adding @mockabot to the group and sending /chatid in the group.
+3.  Additionally, set TELEGRAM_ADMIN_GROUP_CHAT_ID for requests to be successfully generated
+    - TELEGRAM_ADMIN_GROUP_CHAT_ID is a negative integer and can be obtained by adding @mockabot to the target group and sending /chatid in the group.
 
 ### Description of environment variables
     - TELEGRAM_BOT_USERNAME - username of the bot created with Telegram @BotFather; eg: if the bot's username is @mynewbot, please set this to mynewbot
