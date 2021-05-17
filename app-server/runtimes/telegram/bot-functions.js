@@ -97,7 +97,7 @@ async function updateAdminThread(request_id, raw_message, sent_by, replied_by, d
     });
     new_admin_thread_message_text = new_message_lines.join("\n");
   } else {
-    new_admin_thread_message_text = `${status_text}\n\n${header_text}\nSent by ${sent_by} on ${formatDate(date)}\n\n${raw_message}\n\nReply to this message to send a message to user in PM.\n\n${request_id}`;   
+    new_admin_thread_message_text = `${status_text}\n\n${header_text}\nSent by ${sent_by} on ${formatDate(date)}\n\n${raw_message}\n\nReply to this message to send a message to user in PM.\n\n${request_id}`;
   }
 
   // send new message
@@ -256,7 +256,7 @@ Registered with 1912 / 108: { registered_1912_108 } `;
       await updateUserThread(request_id, chat_id, getMessageId(update), "This request is closed. Submit a new request with same SRF ID to re-open the request.", user_reply_markup, global_store);
       return;
     }
-
+    sendEvent(getChatId(update), "PM", "UserReply");
     const admin_thread_update_text = getMessageText(update);
     const user_name = getUserName(update);
     const first_name = getFirstName(update);
@@ -264,11 +264,6 @@ Registered with 1912 / 108: { registered_1912_108 } `;
     const user_display_name = getDisplayName(user_name, first_name, last_name);
     const date = getDateMs(update);
     const admin_reply_markup = { inline_keyboard: getInlineKeyboard("[[Close Request]]") };
-    
-    if ( admin_thread_update_text != "") {
-      sendEvent(getChatId(update), "PM", "UserReply", "Reply");
-    }
-
     await updateAdminThread(request_id, admin_thread_update_text, user_display_name, "", date, admin_reply_markup, global_store);
 
     const user_reply_markup = { inline_keyboard: getInlineKeyboard("[[Cancel Request]]") };
@@ -282,6 +277,7 @@ Registered with 1912 / 108: { registered_1912_108 } `;
     if (!request_id) {
       throw new Error("cancelRequest request_id missing");
     }
+    sendEvent(getChatId(update), "PM", "CancelRequest");
 
     const chat_id = getChatId(update);
     const status = getObjectProperty(global_store, `requests.${request_id}.status`);
@@ -312,11 +308,7 @@ Registered with 1912 / 108: { registered_1912_108 } `;
     const last_name = getLastName(update);
     const user_display_name = getDisplayName(user_name, first_name, last_name);
     const date = getDateMs(update);
-    const admin_reply_markup = { inline_keyboard: is_request_cancelled ? [] : getInlineKeyboard("[[Close Request]]") };
-    
-    if (admin_reply_markup!= { inline_keyboard: [] }) {
-      sendEvent(getChatId(update), "PM", "RequestCancellation", "User Cancellation");
-    }
+    const admin_reply_markup = { inline_keyboard: is_request_cancelled ? [] : getInlineKeyboard("[[Close Request]]") };    
     await updateAdminThread(request_id, admin_thread_update_text, user_display_name, "", date, admin_reply_markup, global_store);
 
     const user_reply_markup = { inline_keyboard: [] };
@@ -370,9 +362,7 @@ Registered with 1912 / 108: { registered_1912_108 } `;
     for (let i = 0; i < active_chats.length; ++i) {
       const chat_id = active_chats[i];
       const user_reply_markup = { inline_keyboard: getInlineKeyboard("[[Cancel Request]]") };
-      if (admin_thread_update_text!="") {
-        sendEvent(getChatId(update), "PM", "AdminReply", "Reply");
-      }
+      sendEvent(chat_id, "PM", "AdminReply");
       update_user_thread_promises.push(updateUserThread(
         request_id,
         chat_id,
@@ -393,7 +383,6 @@ Registered with 1912 / 108: { registered_1912_108 } `;
     const callback_data = replaceSlots(getCallbackData(update), chat_tracker.store);
     switch (callback_data) {
       case "Close Request":
-        sendEvent(getChatId(update), "PM", "CloseRequest", "Admin Cancellation");
         const callback_message_text = getCallbackMessageText(update);
         const callback_message_lines = callback_message_text.split("\n");
         const request_id = callback_message_lines && callback_message_lines.length && callback_message_lines[callback_message_lines.length - 1];
@@ -427,6 +416,7 @@ Registered with 1912 / 108: { registered_1912_108 } `;
         for (let i = 0; i < active_chats.length; ++i) {
           const chat_id = active_chats[i];
           const user_reply_markup = { inline_keyboard: [] };
+          sendEvent(chat_id, "PM", "CloseRequest");
           update_user_thread_promises.push(updateUserThread(
             request_id,
             chat_id,
