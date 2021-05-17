@@ -1,4 +1,4 @@
-const { get: getObjectProperty, set: setObjectProperty } = require('lodash/object');
+const { get: getObjectProperty, has: hasObjectProperty, set: setObjectProperty } = require('lodash/object');
 const { nanoid } = require('nanoid');
 
 const { doBotAction, getInlineKeyboard, getTrackerForChat, removeReplyMarkup, replaceSlots } = require('./bot-engine');
@@ -326,6 +326,9 @@ Registered with 1912 / 108: { registered_1912_108 } `;
     const request_id = reply_to_message_lines && reply_to_message_lines.length && reply_to_message_lines[reply_to_message_lines.length - 1];
     if (!request_id) {
       throw new Error("appendAdminForm request_id missing");
+    }
+    if (!hasObjectProperty(global_store, `requests.${request_id}`)) {
+      throw new Error("appendAdminForm request_id not found in our DB, skipping");
     }
 
     const admin_user_name = getUserName(update);
