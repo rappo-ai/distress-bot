@@ -282,7 +282,6 @@ Registered with 1912 / 108: { registered_1912_108 } `;
     const status = getObjectProperty(global_store, `requests.${request_id}.status`);
     let active_chats = getObjectProperty(global_store, `requests.${request_id}.active_chats`, []);
     const is_request_closed = status !== "open";
-    sendEvent(getChatId(update), "PM", "CancelRequest");
     if (!active_chats.includes(chat_id) || is_request_closed) {
       await updateUserThread(
         request_id,
@@ -294,6 +293,7 @@ Registered with 1912 / 108: { registered_1912_108 } `;
       return;
     }
 
+    sendEvent(getChatId(update), "PM", "CancelRequest");
     active_chats = active_chats.filter(c => c !== chat_id);
     const is_request_cancelled = active_chats.length === 0;
 
