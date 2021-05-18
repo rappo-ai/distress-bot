@@ -277,12 +277,12 @@ Registered with 1912 / 108: { registered_1912_108 } `;
     if (!request_id) {
       throw new Error("cancelRequest request_id missing");
     }
-    sendEvent(getChatId(update), "PM", "CancelRequest");
 
     const chat_id = getChatId(update);
     const status = getObjectProperty(global_store, `requests.${request_id}.status`);
     let active_chats = getObjectProperty(global_store, `requests.${request_id}.active_chats`, []);
     const is_request_closed = status !== "open";
+    sendEvent(getChatId(update), "PM", "CancelRequest");
     if (!active_chats.includes(chat_id) || is_request_closed) {
       await updateUserThread(
         request_id,
@@ -308,7 +308,7 @@ Registered with 1912 / 108: { registered_1912_108 } `;
     const last_name = getLastName(update);
     const user_display_name = getDisplayName(user_name, first_name, last_name);
     const date = getDateMs(update);
-    const admin_reply_markup = { inline_keyboard: is_request_cancelled ? [] : getInlineKeyboard("[[Close Request]]") };    
+    const admin_reply_markup = { inline_keyboard: is_request_cancelled ? [] : getInlineKeyboard("[[Close Request]]") };
     await updateAdminThread(request_id, admin_thread_update_text, user_display_name, "", date, admin_reply_markup, global_store);
 
     const user_reply_markup = { inline_keyboard: [] };
