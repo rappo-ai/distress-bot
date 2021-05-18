@@ -256,7 +256,7 @@ Registered with 1912 / 108: { registered_1912_108 } `;
       await updateUserThread(request_id, chat_id, getMessageId(update), "This request is closed. Submit a new request with same SRF ID to re-open the request.", user_reply_markup, global_store);
       return;
     }
-
+    sendEvent(getChatId(update), "PM", "UserReply");
     const admin_thread_update_text = getMessageText(update);
     const user_name = getUserName(update);
     const first_name = getFirstName(update);
@@ -293,6 +293,7 @@ Registered with 1912 / 108: { registered_1912_108 } `;
       return;
     }
 
+    sendEvent(getChatId(update), "PM", "CancelRequest");
     active_chats = active_chats.filter(c => c !== chat_id);
     const is_request_cancelled = active_chats.length === 0;
 
@@ -361,6 +362,7 @@ Registered with 1912 / 108: { registered_1912_108 } `;
     for (let i = 0; i < active_chats.length; ++i) {
       const chat_id = active_chats[i];
       const user_reply_markup = { inline_keyboard: getInlineKeyboard("[[Cancel Request]]") };
+      sendEvent(chat_id, "PM", "AdminReply");
       update_user_thread_promises.push(updateUserThread(
         request_id,
         chat_id,
@@ -414,6 +416,7 @@ Registered with 1912 / 108: { registered_1912_108 } `;
         for (let i = 0; i < active_chats.length; ++i) {
           const chat_id = active_chats[i];
           const user_reply_markup = { inline_keyboard: [] };
+          sendEvent(chat_id, "PM", "CloseRequest");
           update_user_thread_promises.push(updateUserThread(
             request_id,
             chat_id,

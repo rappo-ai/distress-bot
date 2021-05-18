@@ -13,6 +13,9 @@ Distress Bot for Sahaya group
     - TELEGRAM_BOT_TOKEN
     - TELEGRAM_BOT_SECRET
 
+3.  Additionally, set TELEGRAM_ADMIN_GROUP_CHAT_ID for requests to be successfully generated
+    - TELEGRAM_ADMIN_GROUP_CHAT_ID is a negative integer and can be obtained by adding @mockabot to the target group and sending /chatid in the group.
+
 ### Description of environment variables
     - TELEGRAM_BOT_USERNAME - username of the bot created with Telegram @BotFather; eg: if the bot's username is @mynewbot, please set this to mynewbot
     - TELEGRAM_BOT_TOKEN - the bot token of the above bot; you will get this from @BotFather
