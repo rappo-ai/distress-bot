@@ -18,6 +18,13 @@ module.exports = {
         type: "restart",
       },
     },
+    {
+      trigger: "/new",
+      action: {
+        type: "goto_state",
+        state: "request_type",
+      },
+    },
   ],
   states: [
     {
@@ -105,6 +112,9 @@ module.exports = {
       },
       slots: {
         message_text: "srf_id",
+      },
+      slot_transforms: {
+        "RTPCR test not done": "",
       },
       validation: "^\\d{13}$|^RTPCR test not done$",
       fallback: "You need to enter the 13-digit SRF ID or click one of the options below: [[{cache.srf_id}][RTPCR test not done]]",
@@ -466,6 +476,9 @@ module.exports = {
       },
       slots: {
         message_text: "alt_mobile_number",
+      },
+      slot_transforms: {
+        "Skip": "",
       },
       validation: "^\\d{10}$|^Skip$",
       fallback: "Please enter a 10-digit mobile number. [[{cache.alt_mobile_number}, Skip]]",

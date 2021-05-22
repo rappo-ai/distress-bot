@@ -1,7 +1,7 @@
 const { get: getObjectProperty } = require('lodash/object');
 
 const logger = require('../../logger');
-
+const { sendEvent } = require('../../utils/analytics');
 const { answerCallbackQuery, editMessageText, forwardMessage, getCallbackData, getCallbackMessageId, getCallbackMessageText, getCallbackQueryId, getChatId, getMessageId, getMessageText, getReplyToMessageText, isCallbackQuery, isReplyToBot, isReplyToMessage, sendMessage } = require('../../utils/telegram');
 
 const tracker = {
@@ -206,7 +206,7 @@ async function processPMUpdate(update, chat_tracker, global_store, bot_definitio
   const message_text = getMessageText(update);
   const callback_data = replaceSlots(getCallbackData(update), chat_tracker.store);
   const callback_message_id = getCallbackMessageId(update);
-  const user_response = message_text || callback_data || "";
+  let user_response = message_text || callback_data || "";
   const current_state_name = chat_tracker.current_state_name;
   const current_state = bot_definition.states.find(s => s.name === current_state_name);
 
@@ -290,13 +290,12 @@ async function processPMUpdate(update, chat_tracker, global_store, bot_definitio
           bot_definition,
         );
         await doBotAction(
-          { type: "goto_state", state: current_state_name },
+          { type: "goto_state", state: "request_type" },
           chat_tracker,
           global_store,
           update,
           bot_definition,
         );
-        return;
       }
     }
     // tbd - handle all callback queries here and return
@@ -316,6 +315,11 @@ async function processPMUpdate(update, chat_tracker, global_store, bot_definitio
       }
     }
 
+    if (current_state.slot_transforms) {
+      if (Object.keys(current_state.slot_transforms).includes(user_response)) {
+        user_response = current_state.slot_transforms[user_response];
+      }
+    }
     addMessageSlotsToStore(current_state.slots, chat_store, user_response, message_id);
 
     if (current_state.transitions) {
@@ -341,6 +345,7 @@ async function processPMUpdate(update, chat_tracker, global_store, bot_definitio
 
   while (next_state_name) {
     chat_tracker.current_state_name = next_state_name;
+    sendEvent(getChatId(update), "PM", "StateChange", next_state_name);
     let action_list = bot_definition.states.find(s => s.name === next_state_name).action;
     if (!Array.isArray(action_list)) {
       action_list = [action_list];

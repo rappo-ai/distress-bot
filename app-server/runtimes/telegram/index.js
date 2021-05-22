@@ -5,6 +5,7 @@ const bot_definition = require("./bot-definition");
 bot_definition.functions = require('./bot-functions');
 const { processPMUpdate, processGroupUpdate, getTrackerForChat, getGlobalStore, callFunction } = require('./bot-engine');
 const logger = require('../../logger');
+const { sendEvent } = require('../../utils/analytics');
 const { TELEGRAM_MESSAGE_TYPES, sendMessage, leaveChat, getChatId } = require('../../utils/telegram');
 
 const bots = {};
@@ -100,7 +101,8 @@ async function processUpdate(task, callback) {
 
 addBot(process.env.TELEGRAM_BOT_USERNAME, process.env.TELEGRAM_BOT_SECRET, {
   onPMChatJoin: async function (update) {
-    logger.info(`@${process.env.TELEGRAM_BOT_USERNAME} started PM chat with ${update.message.from.first_name} | ${update.message.from.username} | ${update.message.from.id} `);
+    logger.info(`@${process.env.TELEGRAM_BOT_USERNAME} started PM chat with ${update.message.from.first_name} | ${update.message.from.username} | ${update.message.from.id} `);  
+    sendEvent(getChatId(update), "PM", "Join");
     return processPMUpdate(update, getTrackerForChat(getChatId(update)), getGlobalStore(), bot_definition);
   },
   onPMChatMessage: async function (update) {
