@@ -183,6 +183,7 @@ const functions = {
     let request_id = getRequestIdForSrfId(srf_id, global_store);
     if (!request_id) {
       request_id = await createRequestId(chat_tracker.store, global_store);
+      sendEvent(getChatId(update), "Request", "NewRequestCreated");
     } else {
       setObjectProperty(global_store, `requests.${request_id}.status`, "open");
       if (has_forward_message) {
@@ -253,10 +254,12 @@ Registered with 1912 / 108: { registered_1912_108 } `;
     const active_chats = getObjectProperty(global_store, `requests.${request_id}.active_chats`);
     if (!active_chats.includes(chat_id)) {
       const user_reply_markup = { inline_keyboard: [] };
+      sendEvent(chat_id, "Request", "ClosedRequestOpened");
       await updateUserThread(request_id, chat_id, getMessageId(update), "This request is closed. Submit a new request with same SRF ID to re-open the request.", user_reply_markup, global_store);
       return;
     }
     sendEvent(getChatId(update), "PM", "UserReply");
+    sendEvent(getChatId(update), "Request", "UserReply");
     const admin_thread_update_text = getMessageText(update);
     const user_name = getUserName(update);
     const first_name = getFirstName(update);
@@ -294,6 +297,7 @@ Registered with 1912 / 108: { registered_1912_108 } `;
     }
 
     sendEvent(getChatId(update), "PM", "CancelRequest");
+    sendEvent(getChatId(update), "Request", "UserCancelRequest");
     active_chats = active_chats.filter(c => c !== chat_id);
     const is_request_cancelled = active_chats.length === 0;
 
@@ -343,6 +347,7 @@ Registered with 1912 / 108: { registered_1912_108 } `;
       return;
     }
 
+    sendEvent(getChatId(update), "Request", "AdminReply");
     const admin_reply_markup = { inline_keyboard: getInlineKeyboard("[[Close Request]]") };
     await updateAdminThread(request_id, admin_thread_update_text, "", admin_display_name, date, admin_reply_markup, global_store);
 
@@ -410,7 +415,8 @@ Registered with 1912 / 108: { registered_1912_108 } `;
 
         const admin_thread_update_text = `< ${admin_display_name} closed the request > `;
         await updateAdminThread(request_id, admin_thread_update_text, "", admin_display_name, date, admin_reply_markup, global_store);
-
+        sendEvent(getChatId(update), "Request", "AdminCloseRequest");
+        
         // user responses
         const update_user_thread_promises = [];
         for (let i = 0; i < active_chats.length; ++i) {
@@ -501,6 +507,7 @@ Registered with 1912 / 108: { registered_1912_108 } `;
   },
 
   "confirmDuplicateUpdate": async function (update, chat_tracker, global_store, bot_definition) {
+    sendEvent(getChatId(update), "Request", "DuplicateRequestCreated");
     const srf_id = chat_tracker.store["srf_id"];
     const request_id = getRequestIdForSrfId(srf_id, global_store);
     const patient_name = getObjectProperty(global_store, `requests.${request_id}.data.name`, "");
