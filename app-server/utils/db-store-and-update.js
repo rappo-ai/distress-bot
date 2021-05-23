@@ -1,5 +1,6 @@
 const {spreadsheet_headers}=require('../runtimes/telegram/bot-definition');
 const {TrackerModel}=require('../db/schema/trackerSchema');
+const logger = require('../logger');
  
 async function storeInDatabase(store_data){
 
@@ -21,10 +22,9 @@ async function storeInDatabase(store_data){
   tracker["user_data"]=user_data;
 
   const saved_tracker = new TrackerModel(tracker);
-  await saved_tracker.save().then(() => console.log('tracker saved to db'))
+  await saved_tracker.save().then(() => logger.info('tracker saved to database'))
 .catch(error => { 
-  console.log(error); 
-});
+  return logger.error(error);});
 
 }
 
@@ -33,7 +33,10 @@ async function updateInDatabase(request_id,update_data){
   const filter = { request_id : `${request_id}` };
   await TrackerModel.findOneAndUpdate(filter,update_data,(err)=>{
     if(err){
-      console.log(err);
+      return logger.error(err);
+    }
+    else{
+      logger.info('tracker updated');
     }
   });
 
