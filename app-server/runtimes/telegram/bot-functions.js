@@ -6,7 +6,8 @@ const { doBotAction, getInlineKeyboard, getTrackerForChat, removeReplyMarkup, re
 const logger = require('../../logger');
 const { sendEvent } = require('../../utils/analytics');
 const { formatDate } = require('../../utils/date');
-const { addRow, createSpreadsheet, updateRow } = require('../../utils/google-sheets');
+const { createSpreadsheet } = require('../../utils/google-sheets');
+const { storeInSheetAndDatabase, updateInSheetAndDatabase } = require('../../utils/store-and-update');
 const { deleteMessage, getCallbackData, getCallbackMessageId, getCallbackMessageText, getChatId, getDateMs, getFirstName, getLastName, getMessageId, getMessageText, getReplyToMessageText, getUserName, sendMessage } = require('../../utils/telegram');
 
 // tbd - move all strings into this dictionary
@@ -37,18 +38,12 @@ async function createRequestId(data, global_store) {
     admin_thread_message_id: "",
     admin_thread_message_text: "",
   };
-  const sheet_data = Object.assign({}, data);
-  sheet_data["request_id"] = request_id;
-  sheet_data["creation_time"] = formatDate(Date.now());
-  sheet_data["status"] = "open";
+  const store_data = Object.assign({}, data);
+  store_data["request_id"] = request_id;
+  store_data["creation_time"] = formatDate(Date.now());
+  store_data["status"] = "open";
  
-  const saved_tracker = new TrackerModel(sheet_data);
-  await saved_tracker.save().then(() => console.log('tracker saved to db'))
-  .catch(error => { 
-    console.log(error); 
-});
-
-  await addRow(process.env.SPREADSHEET_ID, sheet_data);
+  await storeInSheetAndDatabase(store_data);
 
   return request_id;
 }
@@ -131,13 +126,17 @@ async function updateAdminThread(request_id, raw_message, sent_by, replied_by, d
   }
 
   const active_chats = getObjectProperty(global_store, `requests.${request_id}.active_chats`, []);
-  await updateRow(process.env.SPREADSHEET_ID, { key: "request_id", value: request_id }, {
+ 
+  const update_data =  {
     status,
     last_update_time: formatDate(Date.now()),
     admin_thread_message_id: api_response.data.result.message_id,
     admin_thread_message_text: new_admin_thread_message_text,
     active_chats: active_chats.join(', '),
-  });
+  };
+
+  await updateInSheetAndDatabase(request_id,update_data,update_data);
+ 
 }
 
 async function updateUserThread(request_id, chat_id, reply_to_message_id, raw_message, reply_markup, global_store) {
@@ -202,20 +201,23 @@ const functions = {
         setObjectProperty(global_store, `requests.${request_id}.data`, Object.assign({}, chat_tracker.store));
         setObjectProperty(global_store, `requests.${request_id}.data.forward_message`, previous_forward_message);
       }
-      const updated_sheet_data={
+      const update_data_sheet={
         last_update_time: formatDate(Date.now()),
         status: "open",
         ...getObjectProperty(global_store, `requests.${request_id}.data`, {}),
-      }
+      };
       
-      const saved_tracker_updated = new TrackerModel(updated_sheet_data);
-     
-      await saved_tracker_updated.save().then(() => console.log('updated tracker saved to db'))
-      .catch(error => { 
-        console.log(error); 
-    });
-
-      await updateRow(process.env.SPREADSHEET_ID, { key: "request_id", value: request_id }, updated_sheet_data);
+      const user_data = Object.assign({}, chat_tracker.store);
+      if (user_data["cache"]) {
+        delete user_data["cache"];
+      }
+      const update_data_database={
+        last_update_time: formatDate(Date.now()),
+        status: "open",
+        user_data: user_data
+      };
+      
+      await updateInSheetAndDatabase(request_id,update_data_sheet,update_data_database);
       
     }
 
