@@ -6,3 +6,9 @@ services:
       dockerfile: Dockerfile.debug
     ports:
       - 9229:9229
+  mongo:
+    image: mongo
+    volumes:
+      - mongodb:/data/db
+volumes:
+  mongodb:
