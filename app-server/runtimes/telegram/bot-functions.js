@@ -3,19 +3,18 @@ const { nanoid } = require('nanoid');
 
 const { doBotAction, getInlineKeyboard, getTrackerForChat, removeReplyMarkup, replaceSlots } = require('./bot-engine');
 
+const {TrackerModel}=require('../../db/schema/trackerSchema');
 const logger = require('../../logger');
 const { sendEvent } = require('../../utils/analytics');
+const { add: addData, update: updateData } = require('../../utils/datastore');
 const { formatDate } = require('../../utils/date');
 const { createSpreadsheet } = require('../../utils/google-sheets');
-const { storeInSheetAndDatabase, updateInSheetAndDatabase } = require('../../utils/store-and-update');
 const { deleteMessage, getCallbackData, getCallbackMessageId, getCallbackMessageText, getChatId, getDateMs, getFirstName, getLastName, getMessageId, getMessageText, getReplyToMessageText, getUserName, sendMessage } = require('../../utils/telegram');
 
 // tbd - move all strings into this dictionary
 const en_strings = {
   "waiting_for_response": "Your message has been recorded. We are trying our best to help, but until we revert back to you with an update please dial 1912 or 108 for beds.\n\nWe wish a speedy recovery for your loved ones.",
 };
-
-const {TrackerModel}=require('../../db/schema/trackerSchema');
 
 function getDisplayName(user_name, first_name, last_name) {
   return `${user_name ? `@${user_name}` : (first_name || "") + first_name && " " + (last_name || "")}` || `Anonymous`;
@@ -42,7 +41,7 @@ async function createRequestId(data, global_store) {
   store_data["creation_time"] = formatDate(Date.now());
   store_data["status"] = "open";
  
-  await storeInSheetAndDatabase(store_data);
+  await addData(store_data);
 
   return request_id;
 }
@@ -134,7 +133,7 @@ async function updateAdminThread(request_id, raw_message, sent_by, replied_by, d
     active_chats: active_chats.join(', '),
   };
 
-  await updateInSheetAndDatabase(request_id,update_data,update_data);
+  await updateData(request_id,update_data,update_data);
  
 }
 
@@ -216,7 +215,7 @@ const functions = {
         user_data: user_data
       };
       
-      await updateInSheetAndDatabase(request_id,update_data_sheet,update_data_database);
+      await updateData(request_id,update_data_sheet,update_data_database);
       
     }
 

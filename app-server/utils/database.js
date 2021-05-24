@@ -1,8 +1,9 @@
-const {spreadsheet_headers}=require('../runtimes/telegram/bot-definition');
 const {TrackerModel}=require('../db/schema/trackerSchema');
 const logger = require('../logger');
+const {spreadsheet_headers}=require('../runtimes/telegram/bot-definition');
+
  
-async function storeInDatabase(store_data){
+async function add(store_data){
 
   const object_headers=[ "request_id" , "creation_time", "last_update_time", "status", "admin_thread_message_id", "admin_thread_message_text", "active_chats" ];
   const user_headers=spreadsheet_headers.filter(function(header){
@@ -28,7 +29,7 @@ async function storeInDatabase(store_data){
 
 }
 
-async function updateInDatabase(request_id,update_data){
+async function update(request_id,update_data){
    
   const filter = { request_id : `${request_id}` };
   await TrackerModel.findOneAndUpdate(filter,update_data,(err)=>{
@@ -43,6 +44,6 @@ async function updateInDatabase(request_id,update_data){
 }
 
 module.exports = {
-  storeInDatabase,
-  updateInDatabase
+  add,
+  update
 };
