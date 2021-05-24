@@ -177,15 +177,19 @@ const functions = {
     logger.info(`Parsed ${rows.length} rows from spreadsheet; Successfully loaded ${num_loaded_rows} rows`);
   },
   "submitForm": async function (update, chat_tracker, global_store, bot_definition) {
+    const check = true; 
     const has_forward_message = !!chat_tracker.store["forward_message"];
     sendEvent(getChatId(update), "PM", "SubmitForm", has_forward_message ? "forward" : "new");
     const srf_id = chat_tracker.store["srf_id"];
     let request_id = getRequestIdForSrfId(srf_id, global_store);
+
     if (!request_id) {
       request_id = await createRequestId(chat_tracker.store, global_store);
-      sendEvent(getChatId(update), "Request", "NewRequestCreated");
+      check = false;
     } else {
-      setObjectProperty(global_store, `requests.${request_id}.status`, "open");
+      status = setObjectProperty(global_store, `requests.${request_id}.status`, "open");
+      const is_user_request_open = (status === "open");
+      sendEvent(process.env.TELEGRAM_ADMIN_GROUP_CHAT_ID, "Request", "Create","ReOpen");
       if (has_forward_message) {
         setObjectProperty(global_store, `requests.${request_id}.data.forward_message`, chat_tracker.store.forward_message);
       } else {
@@ -199,6 +203,7 @@ const functions = {
         ...getObjectProperty(global_store, `requests.${request_id}.data`, {}),
       });
     }
+    sendEvent(process.env.TELEGRAM_ADMIN_GROUP_CHAT_ID, "Request", "Create",check ? "Duplicate" : "New");
 
     const chat_id = getChatId(update);
     const user_name = getUserName(update);
@@ -254,12 +259,11 @@ Registered with 1912 / 108: { registered_1912_108 } `;
     const active_chats = getObjectProperty(global_store, `requests.${request_id}.active_chats`);
     if (!active_chats.includes(chat_id)) {
       const user_reply_markup = { inline_keyboard: [] };
-      sendEvent(chat_id, "Request", "ClosedRequestOpened");
       await updateUserThread(request_id, chat_id, getMessageId(update), "This request is closed. Submit a new request with same SRF ID to re-open the request.", user_reply_markup, global_store);
       return;
     }
     sendEvent(getChatId(update), "PM", "UserReply");
-    sendEvent(getChatId(update), "Request", "UserReply");
+    sendEvent(process.env.TELEGRAM_ADMIN_GROUP_CHAT_ID, "Request", "UserReply");
     const admin_thread_update_text = getMessageText(update);
     const user_name = getUserName(update);
     const first_name = getFirstName(update);
@@ -297,15 +301,17 @@ Registered with 1912 / 108: { registered_1912_108 } `;
     }
 
     sendEvent(getChatId(update), "PM", "CancelRequest");
-    sendEvent(getChatId(update), "Request", "UserCancelRequest");
+
     active_chats = active_chats.filter(c => c !== chat_id);
     const is_request_cancelled = active_chats.length === 0;
 
     setObjectProperty(global_store, `requests.${request_id}.active_chats`, active_chats);
     if (is_request_cancelled) {
       setObjectProperty(global_store, `requests.${request_id}.status`, "closed");
+ 
     }
 
+    sendEvent(process.env.TELEGRAM_ADMIN_GROUP_CHAT_ID, "Request", is_request_cancelled ? "UserClose" : "UserCancel");
     const admin_thread_update_text = "< User cancelled the request >";
     const user_name = getUserName(update);
     const first_name = getFirstName(update);
@@ -347,7 +353,7 @@ Registered with 1912 / 108: { registered_1912_108 } `;
       return;
     }
 
-    sendEvent(getChatId(update), "Request", "AdminReply");
+    sendEvent(process.env.TELEGRAM_ADMIN_GROUP_CHAT_ID, "Request", "AdminReply");
     const admin_reply_markup = { inline_keyboard: getInlineKeyboard("[[Close Request]]") };
     await updateAdminThread(request_id, admin_thread_update_text, "", admin_display_name, date, admin_reply_markup, global_store);
 
@@ -415,7 +421,7 @@ Registered with 1912 / 108: { registered_1912_108 } `;
 
         const admin_thread_update_text = `< ${admin_display_name} closed the request > `;
         await updateAdminThread(request_id, admin_thread_update_text, "", admin_display_name, date, admin_reply_markup, global_store);
-        sendEvent(getChatId(update), "Request", "AdminCloseRequest");
+        sendEvent(process.env.TELEGRAM_ADMIN_GROUP_CHAT_ID, "Request", "AdminClose");
         
         // user responses
         const update_user_thread_promises = [];
@@ -507,7 +513,6 @@ Registered with 1912 / 108: { registered_1912_108 } `;
   },
 
   "confirmDuplicateUpdate": async function (update, chat_tracker, global_store, bot_definition) {
-    sendEvent(getChatId(update), "Request", "DuplicateRequestCreated");
     const srf_id = chat_tracker.store["srf_id"];
     const request_id = getRequestIdForSrfId(srf_id, global_store);
     const patient_name = getObjectProperty(global_store, `requests.${request_id}.data.name`, "");
