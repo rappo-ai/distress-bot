@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "cross-env NODE_ENV=development ENABLE_TUNNEL=true node ./",
-    "start:debug": "cross-env NODE_ENV=development ENABLE_TUNNEL=true node ./",
+    "start:debug": "cross-env NODE_ENV=development ENABLE_TUNNEL=true node --inspect=0.0.0.0:9229 ./",
     "start:production": "cross-env NODE_ENV=production node ./",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -30,7 +30,6 @@
     "ip": "^1.1.5",
     "lodash": "^4.17.21",
     "minimist": "^1.2.5",
-    "mongoose": "^5.12.10",
     "morgan": "^1.10.0",
     "nanoid": "^3.1.22",
     "universal-analytics": "^0.4.23"

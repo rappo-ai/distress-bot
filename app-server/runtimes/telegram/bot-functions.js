@@ -16,7 +16,6 @@ const en_strings = {
 };
 
 const {TrackerModel}=require('../../db/schema/trackerSchema');
-const {spreadsheet_headers}=require('./bot-definition');
 
 function getDisplayName(user_name, first_name, last_name) {
   return `${user_name ? `@${user_name}` : (first_name || "") + first_name && " " + (last_name || "")}` || `Anonymous`;
