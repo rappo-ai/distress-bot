@@ -20,4 +20,3 @@ const TrackerModel = mongoose.model('Tracker',TrackerSchema);
 module.exports = {
     TrackerModel
   };
- 

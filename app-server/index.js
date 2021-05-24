@@ -21,9 +21,7 @@ const ngrok =
     ? require('ngrok')
     : false;
 
-
 mongoose.connect('mongodb://mongo:27017/trackerDB', {useNewUrlParser: true, useUnifiedTopology: true, useFindAndModify: false});
- 
 
 const app = express();
 
