@@ -3,10 +3,9 @@ const { nanoid } = require('nanoid');
 
 const { doBotAction, getInlineKeyboard, getTrackerForChat, removeReplyMarkup, replaceSlots } = require('./bot-engine');
 
-const {TrackerModel}=require('../../db/schema/trackerSchema');
 const logger = require('../../logger');
 const { sendEvent } = require('../../utils/analytics');
-const { add: addData, update: updateData } = require('../../utils/datastore');
+const { add: addToDataStore, update: updateDataStore } = require('../../utils/datastore');
 const { formatDate } = require('../../utils/date');
 const { createSpreadsheet } = require('../../utils/google-sheets');
 const { deleteMessage, getCallbackData, getCallbackMessageId, getCallbackMessageText, getChatId, getDateMs, getFirstName, getLastName, getMessageId, getMessageText, getReplyToMessageText, getUserName, sendMessage } = require('../../utils/telegram');
@@ -36,12 +35,14 @@ async function createRequestId(data, global_store) {
     admin_thread_message_id: "",
     admin_thread_message_text: "",
   };
-  const store_data = Object.assign({}, data);
-  store_data["request_id"] = request_id;
-  store_data["creation_time"] = formatDate(Date.now());
-  store_data["status"] = "open";
- 
-  await addData(store_data);
+
+  const store_data = {
+    request_id,
+    creation_time,
+    status: "open",
+    request_data,
+  };
+  await addToDataStore(store_data);
 
   return request_id;
 }
@@ -124,8 +125,8 @@ async function updateAdminThread(request_id, raw_message, sent_by, replied_by, d
   }
 
   const active_chats = getObjectProperty(global_store, `requests.${request_id}.active_chats`, []);
- 
-  const update_data =  {
+
+  const update_data = {
     status,
     last_update_time: formatDate(Date.now()),
     admin_thread_message_id: api_response.data.result.message_id,
@@ -133,8 +134,7 @@ async function updateAdminThread(request_id, raw_message, sent_by, replied_by, d
     active_chats: active_chats.join(', '),
   };
 
-  await updateData(request_id,update_data);
- 
+  await updateDataStore(request_id, update_data);
 }
 
 async function updateUserThread(request_id, chat_id, reply_to_message_id, raw_message, reply_markup, global_store) {
@@ -198,18 +198,17 @@ const functions = {
         setObjectProperty(global_store, `requests.${request_id}.data`, Object.assign({}, chat_tracker.store));
         setObjectProperty(global_store, `requests.${request_id}.data.forward_message`, previous_forward_message);
       }
-      const update_data={
+      const update_data = {
         last_update_time: formatDate(Date.now()),
         status: "open",
       };
-      const user_data = Object.assign({}, chat_tracker.store);
-      if (user_data["cache"]) {
-        delete user_data["cache"];
-      } 
-      setObjectProperty(update_data, `user_data`, user_data);
+      const request_data = Object.assign({}, chat_tracker.store);
+      if (request_data["cache"]) {
+        delete request_data["cache"];
+      }
+      setObjectProperty(update_data, `request_data`, request_data);
 
-      await updateData(request_id, update_data);
-      
+      await updateDataStore(request_id, update_data);
     }
 
     const chat_id = getChatId(update);
