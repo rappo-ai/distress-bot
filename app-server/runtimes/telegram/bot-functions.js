@@ -133,7 +133,7 @@ async function updateAdminThread(request_id, raw_message, sent_by, replied_by, d
     active_chats: active_chats.join(', '),
   };
 
-  await updateData(request_id,update_data,update_data);
+  await updateData(request_id,update_data);
  
 }
 
@@ -189,7 +189,6 @@ const functions = {
     let request_id = getRequestIdForSrfId(srf_id, global_store);
     if (!request_id) {
       request_id = await createRequestId(chat_tracker.store, global_store);
-
     } else {
       setObjectProperty(global_store, `requests.${request_id}.status`, "open");
       if (has_forward_message) {
@@ -199,23 +198,17 @@ const functions = {
         setObjectProperty(global_store, `requests.${request_id}.data`, Object.assign({}, chat_tracker.store));
         setObjectProperty(global_store, `requests.${request_id}.data.forward_message`, previous_forward_message);
       }
-      const update_data_sheet={
+      const update_data={
         last_update_time: formatDate(Date.now()),
         status: "open",
-        ...getObjectProperty(global_store, `requests.${request_id}.data`, {}),
       };
-      
       const user_data = Object.assign({}, chat_tracker.store);
       if (user_data["cache"]) {
         delete user_data["cache"];
-      }
-      const update_data_database={
-        last_update_time: formatDate(Date.now()),
-        status: "open",
-        user_data: user_data
-      };
-      
-      await updateData(request_id,update_data_sheet,update_data_database);
+      } 
+      setObjectProperty(update_data, `user_data`, user_data);
+
+      await updateData(request_id, update_data);
       
     }
 
