@@ -188,7 +188,7 @@ const functions = {
     } else {
       sendEvent(process.env.TELEGRAM_ADMIN_GROUP_CHAT_ID, "Request", "Create", "Duplicate");
       const old_status = getObjectProperty(global_store, `requests.${request_id}.status`, "open");
-      if (old_status === "open") {
+      if (old_status !== "open") {
         sendEvent(process.env.TELEGRAM_ADMIN_GROUP_CHAT_ID, "Request", "Create", "Reopen");
       }
       setObjectProperty(global_store, `requests.${request_id}.status`, "open");
