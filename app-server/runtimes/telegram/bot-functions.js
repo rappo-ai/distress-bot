@@ -185,11 +185,14 @@ const functions = {
 
     if (!request_id) {
       request_id = await createRequestId(chat_tracker.store, global_store);
-      check = false;
+      sendEvent(process.env.TELEGRAM_ADMIN_GROUP_CHAT_ID, "Request", "Create", "New");
     } else {
-      status = setObjectProperty(global_store, `requests.${request_id}.status`, "open");
-      const is_user_request_open = (status === "open");
-      sendEvent(process.env.TELEGRAM_ADMIN_GROUP_CHAT_ID, "Request", "Create","ReOpen");
+      status = getObjectProperty(global_store, `requests.${request_id}.status`, "open");
+      endEvent(process.env.TELEGRAM_ADMIN_GROUP_CHAT_ID, "Request", "Create", "Duplicate");
+      if(status === "open") {
+        sendEvent(process.env.TELEGRAM_ADMIN_GROUP_CHAT_ID, "Request", "Create","ReOpen");
+      }
+      setObjectProperty(global_store, `requests.${request_id}.status`, "open");
       if (has_forward_message) {
         setObjectProperty(global_store, `requests.${request_id}.data.forward_message`, chat_tracker.store.forward_message);
       } else {
@@ -203,7 +206,6 @@ const functions = {
         ...getObjectProperty(global_store, `requests.${request_id}.data`, {}),
       });
     }
-    sendEvent(process.env.TELEGRAM_ADMIN_GROUP_CHAT_ID, "Request", "Create",check ? "Duplicate" : "New");
 
     const chat_id = getChatId(update);
     const user_name = getUserName(update);
@@ -301,17 +303,16 @@ Registered with 1912 / 108: { registered_1912_108 } `;
     }
 
     sendEvent(getChatId(update), "PM", "CancelRequest");
-
+    sendEvent(process.env.TELEGRAM_ADMIN_GROUP_CHAT_ID, "Request","UserCancel");
     active_chats = active_chats.filter(c => c !== chat_id);
     const is_request_cancelled = active_chats.length === 0;
 
     setObjectProperty(global_store, `requests.${request_id}.active_chats`, active_chats);
     if (is_request_cancelled) {
       setObjectProperty(global_store, `requests.${request_id}.status`, "closed");
- 
+      sendEvent(process.env.TELEGRAM_ADMIN_GROUP_CHAT_ID, "Request","UserClose");
     }
 
-    sendEvent(process.env.TELEGRAM_ADMIN_GROUP_CHAT_ID, "Request", is_request_cancelled ? "UserClose" : "UserCancel");
     const admin_thread_update_text = "< User cancelled the request >";
     const user_name = getUserName(update);
     const first_name = getFirstName(update);
