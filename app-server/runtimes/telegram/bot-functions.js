@@ -177,7 +177,6 @@ const functions = {
     logger.info(`Parsed ${rows.length} rows from spreadsheet; Successfully loaded ${num_loaded_rows} rows`);
   },
   "submitForm": async function (update, chat_tracker, global_store, bot_definition) {
-    const check = true; 
     const has_forward_message = !!chat_tracker.store["forward_message"];
     sendEvent(getChatId(update), "PM", "SubmitForm", has_forward_message ? "forward" : "new");
     const srf_id = chat_tracker.store["srf_id"];
