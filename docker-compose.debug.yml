@@ -4,5 +4,15 @@ services:
     build:
       context: app-server
       dockerfile: Dockerfile.debug
+    depends_on:
+      - mongo
     ports:
       - 9229:9229
+  mongo:
+    image: mongo
+    volumes:
+      - mongodb:/data/db
+    ports:
+      - 27018:27017
+volumes:
+  mongodb:

@@ -1,17 +1,19 @@
+//add all imports after dotenv
 const path = require('path');
 require('dotenv').config({
   path: path.resolve(__dirname, './.env.server'),
 });
 
 const express = require('express');
+const mongoose = require('mongoose');
 const morgan = require('morgan')('combined');
 
 const argv = require('./argv');
 const logger = require('./logger');
 const webhooks = require('./middlewares/webhooks');
+const port = require('./port');
 const { initRuntime } = require('./runtimes/telegram');
 const { callTelegramApi, getWebhookUrl } = require('./utils/telegram');
-const port = require('./port');
 
 const isDev = process.env.NODE_ENV !== 'production';
 const isProd = process.env.NODE_ENV === 'production';
@@ -19,6 +21,8 @@ const ngrok =
   (isDev && process.env.ENABLE_TUNNEL) || argv.tunnel
     ? require('ngrok')
     : false;
+
+mongoose.connect('mongodb://mongo:27017/trackerDB', {useNewUrlParser: true, useUnifiedTopology: true, useFindAndModify: false});
 
 const app = express();
 
